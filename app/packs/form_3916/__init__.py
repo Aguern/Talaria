@@ -1,0 +1,1 @@
+# Pack for automating French tax form 3916 (foreign accounts declaration)

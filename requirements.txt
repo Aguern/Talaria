@@ -1,0 +1,56 @@
+# Framework & Server
+fastapi
+uvicorn[standard]
+
+# Database (ORM & Driver)
+sqlalchemy
+asyncpg
+
+# Pydantic & Config
+pydantic
+pydantic-settings
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt # Ajout explicite pour la stabilité
+
+# File Handling
+python-multipart
+
+# AI & Orchestration
+langchain
+langchain-openai
+langchain-text-splitters
+langgraph
+openai
+tiktoken
+langchain-community # pour les intégrations comme HuggingFace
+langchain-huggingface # nouveau package pour HuggingFace
+sentence-transformers # nécessaire pour le modèle
+torch # librairie de base pour les modèles
+
+# Document Parsing & Data Handling
+pymupdf
+pandas
+openpyxl
+
+# Logging
+structlog
+
+# Security & Encryption
+cryptography
+
+# Background Tasks
+celery
+redis
+
+# Vector Database Support
+pgvector
+
+# HTTP Client
+httpx
+
+# HTML/XML Parsing
+beautifulsoup4
+lxml
