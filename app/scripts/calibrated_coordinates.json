@@ -1,0 +1,108 @@
+{
+  "calibration_data": {
+    "identite_complete": [
+      83.11,
+      531.29
+    ],
+    "adresse_ligne1": [
+      73.79,
+      454.38
+    ],
+    "adresse_ligne2": [
+      73.79,
+      439.38
+    ],
+    "nature_compte_bancaire_x": [
+      62.2,
+      761.97
+    ],
+    "nature_compte_actifs_numeriques_x": [
+      103.2,
+      745.5
+    ],
+    "nature_contrat_assurance_vie_x": [
+      62.2,
+      729.03
+    ],
+    "numero_compte": [
+      171.77,
+      653.9
+    ],
+    "date_cloture": [
+      368.56,
+      578.12
+    ],
+    "type_compte_courant_x": [
+      62.21,
+      623.06
+    ],
+    "usage_personnel_x": [
+      62.21,
+      770.05
+    ],
+    "usage_professionnel_x": [
+      62.21,
+      742.18
+    ],
+    "usage_mixte_x": [
+      62.2,
+      714.91
+    ],
+    "lieu_signature": [
+      262.52,
+      403.38
+    ],
+    "date_signature": [
+      414.78,
+      403.38
+    ]
+  },
+  "by_page": {
+    "COMPTE_BANCAIRE": {
+      "0": {
+        "identite_complete": [
+          83.11,
+          531.29
+        ],
+        "adresse_ligne1": [
+          73.79,
+          454.38
+        ],
+        "adresse_ligne2": [
+          73.79,
+          439.38
+        ]
+      },
+      "1": {
+        "nature_compte_bancaire_x": [
+          62.2,
+          761.97
+        ],
+        "numero_compte": [
+          171.77,
+          653.9
+        ],
+        "type_compte_courant_x": [
+          62.21,
+          623.06
+        ]
+      },
+      "2": {
+        "usage_personnel_x": [
+          62.21,
+          770.05
+        ]
+      },
+      "3": {
+        "lieu_signature": [
+          262.52,
+          403.38
+        ],
+        "date_signature": [
+          414.78,
+          403.38
+        ]
+      }
+    }
+  }
+}

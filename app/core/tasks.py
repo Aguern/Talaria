@@ -317,3 +317,95 @@ def debug_task(x: int, y: int):
     result = x + y
     log.info("Tâche de débogage terminée.", result=result)
     return result
+
+# Nouvelles importations pour l'exécution de recettes
+import json
+import base64
+from redis import Redis
+import sys
+import os
+sys.path.append('/app')
+from packs.form_3916.graph_modern import form_3916_graph_modern
+
+# Connexion à Redis
+redis_client = Redis.from_url("redis://redis:6379/0", decode_responses=True)
+
+@celery_app.task(name="execute_recipe_graph")
+def execute_recipe_graph(task_id: str, state: dict):
+    """
+    Tâche Celery qui exécute ou continue un graphe de recette.
+    """
+    print(f"WORKER: Exécution du graphe pour la tâche {task_id}")
+
+    # LangGraph n'est pas nativement compatible avec l'async dans Celery,
+    # nous utilisons donc asyncio.run pour exécuter la coroutine.
+    import asyncio
+
+    try:
+        # Exécuter le graphe avec l'état fourni
+        final_state = asyncio.run(form_3916_graph_modern.ainvoke(state))
+
+        # Déterminer le statut selon l'état retourné
+        task_status = {"task_id": task_id}
+
+        # Check for different states
+        missing_critical = final_state.get("missing_critical", [])
+
+        if missing_critical and not final_state.get("generated_pdf"):
+            # Des champs critiques manquent et pas de PDF = besoin d'input utilisateur
+            task_status["status"] = "AWAITING_USER_INPUT"
+
+            # Créer le message pour l'utilisateur
+            field_labels = {
+                "nom": "Nom",
+                "prenom": "Prénom",
+                "date_naissance": "Date de naissance (JJ/MM/AAAA)",
+                "lieu_naissance": "Lieu de naissance",
+                "adresse_complete": "Adresse complète",
+                "numero_compte": "Numéro de compte",
+                "designation_etablissement": "Nom de l'établissement bancaire"
+            }
+
+            message = "Pour compléter le formulaire 3916, j'ai besoin des informations suivantes :\n\n"
+            for field in missing_critical:
+                label = field_labels.get(field, field)
+                message += f"• {label}\n"
+
+            task_status["current_question"] = final_state.get("_message", message)
+            task_status["missing_fields"] = missing_critical
+            task_status["result"] = {
+                "consolidated_data": final_state.get("consolidated_data", {}),
+                "missing_critical": missing_critical
+            }
+        elif final_state.get("generated_pdf"):
+            # PDF généré avec succès
+            pdf_bytes = final_state["generated_pdf"]
+            task_status["status"] = "COMPLETED"
+            task_status["generated_pdf"] = base64.b64encode(pdf_bytes).decode('utf-8')
+            task_status["result"] = {
+                "consolidated_data": final_state.get("consolidated_data", {}),
+                "missing_critical": [],
+                "missing_optional": final_state.get("missing_optional", [])
+            }
+        else:
+            # État intermédiaire avec données consolidées
+            task_status["status"] = "PROCESSING"
+            task_status["result"] = {
+                "consolidated_data": final_state.get("consolidated_data", {}),
+                "missing_critical": missing_critical,
+                "missing_optional": final_state.get("missing_optional", [])
+            }
+
+        # Sauvegarder l'état dans Redis
+        redis_client.set(f"task:{task_id}", json.dumps(task_status, default=str))
+        print(f"WORKER: État final sauvegardé pour la tâche {task_id}, status: {task_status['status']}")
+
+    except Exception as e:
+        # Gérer les erreurs et les sauvegarder dans l'état
+        error_state = {
+            "task_id": task_id,
+            "status": "ERROR",
+            "error": str(e)
+        }
+        redis_client.set(f"task:{task_id}", json.dumps(error_state, default=str))
+        print(f"WORKER: Erreur lors de l'exécution de la tâche {task_id}: {e}")

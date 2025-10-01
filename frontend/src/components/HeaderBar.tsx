@@ -71,8 +71,8 @@ export function HeaderBar({ className }: HeaderBarProps) {
         open={loginDialog.open}
         onOpenChange={loginDialog.setOpen}
         onSuccess={() => {
-          // Redirect to search page after successful login using Next.js router
-          router.push("/search");
+          // Redirect to chat page after successful login using Next.js router
+          router.push("/chat");
         }}
       />
 

@@ -8,10 +8,10 @@ import { ToastProvider } from "@/components/providers/ToastProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Rive BOFIP",
-  description: "Assistant intelligent pour interroger la doctrine fiscale du BOFIP.",
-  keywords: ["BOFIP", "fiscalité", "impôts", "recherche", "assistant", "doctrine"],
-  authors: [{ name: "Nouvelle Rive" }],
+  title: "Talaria",
+  description: "Plateforme d'intégration cognitive (iPaaS) pour l'automatisation de l'expertise métier.",
+  keywords: ["iPaaS", "automatisation", "IA", "expertise", "workflows", "intégration cognitive"],
+  authors: [{ name: "Talaria" }],
   robots: "noindex, nofollow", // Private app
 };
 

@@ -10,9 +10,9 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Si l'utilisateur est déjà connecté, on le redirige vers la recherche.
+    // Si l'utilisateur est déjà connecté, on le redirige vers le chat.
     if (auth.isAuthenticated) {
-      router.replace("/search");
+      router.replace("/chat");
     }
   }, [auth.isAuthenticated, router]);
 

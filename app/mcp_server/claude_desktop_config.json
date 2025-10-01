@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "form3916": {
+      "command": "python3",
+      "args": [
+        "/Users/nicolasangougeard/Desktop/SaaS_NR/app/mcp_server/form3916_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/nicolasangougeard/Desktop/SaaS_NR",
+        "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY_HERE"
+      }
+    }
+  }
+}

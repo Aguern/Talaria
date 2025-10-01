@@ -13,6 +13,8 @@ from core.database import engine, Base, get_db
 from core.logging_config import setup_logging
 from core import tasks as core_tasks
 from packs.bofip import router as bofip_router
+from packs.form_3916 import router as form_3916_router
+from api import chat as chat_router
 
 # Configure le logging au démarrage
 setup_logging()
@@ -56,8 +58,10 @@ async def on_startup():
         await conn.run_sync(Base.metadata.create_all)
     log.info("database tables ready")
 
-# Inclure les routes du pack "BOFIP"
+# Inclure les routes des packs
 app.include_router(bofip_router.router)
+app.include_router(form_3916_router.router)
+app.include_router(chat_router.router, prefix="/api")
 
 @app.post("/users", response_model=schemas.User, status_code=status.HTTP_201_CREATED, tags=["Auth"])
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):

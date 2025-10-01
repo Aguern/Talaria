@@ -12,8 +12,7 @@ pydantic-settings
 
 # Authentication
 python-jose[cryptography]
-passlib[bcrypt]
-bcrypt # Ajout explicite pour la stabilité
+argon2-cffi==23.1.0
 
 # File Handling
 python-multipart
@@ -23,6 +22,9 @@ langchain
 langchain-openai
 langchain-text-splitters
 langgraph
+langgraph-checkpoint
+langgraph-checkpoint-postgres
+langgraph-checkpoint-sqlite
 openai
 tiktoken
 langchain-community # pour les intégrations comme HuggingFace
@@ -54,3 +56,11 @@ httpx
 # HTML/XML Parsing
 beautifulsoup4
 lxml
+
+pytest
+pytest-asyncio
+
+pypdf
+PyPDFForm==1.4.31
+reportlab
+pymupdf

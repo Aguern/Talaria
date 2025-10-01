@@ -6,9 +6,14 @@ const config: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   compress: true,
-  
+
   // PAS de ignoreBuildErrors / ignoreDuringBuilds
   reactStrictMode: true,
+
+  // Experimental features
+  experimental: {
+    // Configuration pour compatibilité
+  },
   
   // Images configuration 
   images: {
@@ -19,10 +24,49 @@ const config: NextConfig = {
   // API Proxy vers le backend FastAPI
   async rewrites() {
     return [
+      // Routes d'authentification (sans /api dans le backend)
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/:path*',
+        source: '/api/token',
+        destination: 'http://localhost:8000/token',
       },
+      {
+        source: '/api/users/:path*',
+        destination: 'http://localhost:8000/users/:path*',
+      },
+      {
+        source: '/api/users',
+        destination: 'http://localhost:8000/users',
+      },
+
+      // Routes chat/MCP (avec /api dans le backend)
+      {
+        source: '/api/conversations/:path*',
+        destination: 'http://localhost:8000/api/conversations/:path*',
+      },
+      {
+        source: '/api/conversations',
+        destination: 'http://localhost:8000/api/conversations',
+      },
+      {
+        source: '/api/mcp/:path*',
+        destination: 'http://localhost:8000/api/mcp/:path*',
+      },
+      {
+        source: '/api/chat/:path*',
+        destination: 'http://localhost:8000/api/chat/:path*',
+      },
+      {
+        source: '/api/upload',
+        destination: 'http://localhost:8000/api/upload',
+      },
+
+      // Routes des packs
+      {
+        source: '/packs/:path*',
+        destination: 'http://localhost:8000/packs/:path*',
+      },
+
+      // Autres routes
       {
         source: '/doc/:path*',
         destination: 'http://localhost:8000/doc/:path*',
@@ -30,10 +74,6 @@ const config: NextConfig = {
       {
         source: '/feedback',
         destination: 'http://localhost:8000/feedback',
-      },
-      {
-        source: '/packs/:path*',
-        destination: 'http://localhost:8000/packs/:path*',
       },
     ];
   },

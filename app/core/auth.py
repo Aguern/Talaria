@@ -5,21 +5,29 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from . import schemas, models, crud
 from .database import get_db
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Modern Argon2id password hasher (OWASP recommendation 2025)
+ph = PasswordHasher()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash using Argon2id."""
+    try:
+        ph.verify(hashed_password, plain_password)
+        return True
+    except VerifyMismatchError:
+        return False
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    """Hash a password using Argon2id."""
+    return ph.hash(password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
