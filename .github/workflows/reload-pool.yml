@@ -1,0 +1,14 @@
+ name: Reload Google Sheets Template Pool
+
+  on:
+    schedule:
+      - cron: '0 */6 * * *'  # Toutes les 6 heures
+    workflow_dispatch:  # Permet de lancer manuellement
+
+  jobs:
+    reload-pool:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Reload Template Pool
+          run: |
+            curl -X POST "https://deme-api.onrender.com/api/packs/deme-traiteur/admin/reload-pool?secret=${{ secrets.ADMIN_SECRET }}&count=10"
