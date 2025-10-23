@@ -3,10 +3,18 @@
 import httpx
 from typing import List
 import structlog
-from langchain_huggingface import HuggingFaceEmbeddings
-from sentence_transformers.cross_encoder import CrossEncoder
 
 log = structlog.get_logger()
+
+# Optional imports for ML models (not needed for DéMé Traiteur, only for BOFIP pack)
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+    from sentence_transformers.cross_encoder import CrossEncoder
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    log.warning("ML packages not available (langchain_huggingface, sentence_transformers). "
+                "Some features (BOFIP pack) will be disabled.")
 
 # L'URL de notre nouveau service, accessible via Docker Compose
 EMBEDDING_SERVICE_URL = "http://embedding-api:8001/embed"
@@ -51,7 +59,16 @@ def get_embed_model():
     """
     Charge le modèle d'embedding Hugging Face via LangChain.
     C'est un singleton pour éviter de recharger le modèle en mémoire à chaque appel.
+
+    Note: Requires langchain_huggingface and sentence_transformers packages.
+    Use get_embed_client() for lightweight API-based embeddings instead.
     """
+    if not ML_AVAILABLE:
+        raise ImportError(
+            "ML packages not available. Install langchain_huggingface and sentence_transformers, "
+            "or use get_embed_client() for API-based embeddings."
+        )
+
     global _embed_model
     if _embed_model is None:
         log.info("Chargement du modèle d'embedding 'paraphrase-multilingual-mpnet-base-v2'...")
@@ -68,7 +85,14 @@ _reranker_model = None
 def get_reranker_model():
     """
     Charge le modèle de re-ranking en mémoire ou le retourne s'il est déjà chargé.
+
+    Note: Requires sentence_transformers package.
     """
+    if not ML_AVAILABLE:
+        raise ImportError(
+            "ML packages not available. Install sentence_transformers package."
+        )
+
     global _reranker_model
     if _reranker_model is None:
         log.info("Chargement du modèle de re-ranking 'bge-reranker-base'...")
