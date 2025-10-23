@@ -4,8 +4,7 @@ uvicorn[standard]
 
 # Database (ORM & Driver)
 sqlalchemy
-asyncpg
-psycopg2-binary
+asyncpg  # Async PostgreSQL driver for SQLAlchemy
 
 # Pydantic & Config
 pydantic
