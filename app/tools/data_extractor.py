@@ -160,3 +160,75 @@ async def extract_rib_data(text: str) -> RIBData:
         bank_name=extracted_data.bank_name,
         account_holder_name=extracted_data.account_holder_name
     )
+
+async def extract_data_from_document_universal(text: str, filename: str) -> ExtractedData:
+    """
+    Extraction universelle intelligente - l'IA détermine automatiquement
+    quelles informations extraire selon le contenu du document.
+    """
+    llm = ChatOpenAI(model=settings.OPENAI_MODEL, temperature=settings.OPENAI_TEMPERATURE)
+    structured_llm = llm.with_structured_output(ExtractedData)
+
+    prompt = f"""Tu es un expert en extraction de données pour le formulaire 3916 français.
+
+    ANALYSE ce document (filename: {filename}) et EXTRAIS intelligemment TOUTES les informations pertinentes que tu peux identifier pour remplir un formulaire 3916 (déclaration de comptes à l'étranger).
+
+    CONSIGNES D'EXTRACTION INTELLIGENTE :
+
+    1. **IDENTITÉ** - Si c'est un document d'identité (CNI, passeport, etc.) :
+       - Nom de famille (patronymique)
+       - Prénom(s) complet(s)
+       - Date de naissance (format JJ.MM.AAAA)
+       - Lieu de naissance (ville, département/pays)
+       - Adresse si présente
+
+    2. **INFORMATIONS BANCAIRES** - Si c'est un RIB, relevé bancaire, etc. :
+       - Numéro de compte / IBAN complet
+       - Code BIC si présent
+       - Nom de l'établissement bancaire
+       - Adresse de l'établissement
+       - Date d'ouverture si mentionnée
+
+    3. **DOCUMENTS MIXTES** - Extrait tout ce qui est pertinent :
+       - Cherche activement les identifiants bancaires
+       - Identifie les informations personnelles
+       - Adapte-toi au type de document automatiquement
+
+    4. **FORMATAGE** :
+       - Dates au format JJ.MM.AAAA (convertir si nécessaire)
+       - Adresses complètes et lisibles
+       - Noms propres avec majuscules appropriées
+
+    5. **ROBUSTESSE** :
+       - Si le texte est mal OCRisé, fais de ton mieux pour interpréter
+       - Utilise le contexte pour corriger les erreurs probables
+       - Ne laisse vide que si vraiment aucune information n'est trouvée
+
+    ANALYSE ce contenu et extrais intelligemment ce qui est pertinent :
+
+    TEXTE DU DOCUMENT :
+    ---
+    {text}
+    ---
+    """
+
+    result = await structured_llm.ainvoke(prompt)
+
+    # Post-traitement intelligent selon les données trouvées
+    if result.numero_compte or result.iban:
+        # Données bancaires détectées
+        if result.iban and not result.numero_compte:
+            result.numero_compte = result.iban
+        if result.bank_name and not result.designation_etablissement:
+            result.designation_etablissement = result.bank_name
+        if not result.nature_compte:
+            result.nature_compte = "COMPTE_BANCAIRE"
+        if not result.usage_compte:
+            result.usage_compte = "PERSONNEL"
+
+    if result.nom or result.prenom:
+        # Données d'identité détectées
+        if not result.usage_compte:
+            result.usage_compte = "PERSONNEL"
+
+    return result

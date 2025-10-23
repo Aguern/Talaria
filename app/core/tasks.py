@@ -8,8 +8,11 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import asyncio
+import json
+import importlib
 from typing import Dict
 from sqlalchemy import text, func
+from redis import Redis
 
 from worker import celery_app
 from core.database import SessionLocal
@@ -20,6 +23,9 @@ import structlog
 log = structlog.get_logger()
 
 BOFIP_INDEX_URL = "https://www.data.gouv.fr/api/1/datasets/r/93c981ed-a818-4e89-bb19-49756591bc2d"
+
+# Connexion Redis pour les tâches
+redis_client = Redis.from_url("redis://redis:6379/0", decode_responses=True)
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
 
 async def process_document_pair(tar: tarfile.TarFile, files: Dict, tenant_id: int):
@@ -318,32 +324,269 @@ def debug_task(x: int, y: int):
     log.info("Tâche de débogage terminée.", result=result)
     return result
 
-# Nouvelles importations pour l'exécution de recettes
-import json
+# Importations pour l'exécution de recettes
 import base64
-from redis import Redis
+import importlib
 import sys
 import os
 sys.path.append('/app')
 from packs.form_3916.graph_modern import form_3916_graph_modern
 
-# Connexion à Redis
-redis_client = Redis.from_url("redis://redis:6379/0", decode_responses=True)
+@celery_app.task(name="execute_recipe_task")
+def execute_recipe_task(recipe_id: str, task_id: str, inputs: dict):
+    """
+    Tâche Celery générique pour l'exécution de recettes avec support conversationnel.
+
+    Cette tâche :
+    1. Importe dynamiquement le module de la recette
+    2. Appelle la fonction execute() standardisée
+    3. Gère les interruptions pour l'interaction humaine
+    4. Sauvegarde le résultat dans Redis avec statuts enrichis
+
+    Args:
+        recipe_id: L'identifiant de la recette (ex: 'form_3916')
+        task_id: L'identifiant unique de la tâche
+        inputs: Les données d'entrée validées par l'orchestrateur
+    """
+    # Vérifier s'il s'agit d'une reprise
+    is_resume = inputs.get("is_resume", False)
+    human_input_response = inputs.get("human_input_response", None)
+
+    if is_resume:
+        log.info("Reprise de l'exécution de recette après input utilisateur",
+                 recipe_id=recipe_id,
+                 task_id=task_id,
+                 input_keys=list(inputs.keys()))
+    else:
+        log.info("Démarrage de l'exécution de recette",
+                 recipe_id=recipe_id,
+                 task_id=task_id,
+                 input_keys=list(inputs.keys()))
+
+    def update_task_status(status: str, **kwargs):
+        """Helper pour mettre à jour le statut dans Redis"""
+        task_data = {
+            "task_id": task_id,
+            "recipe_id": recipe_id,
+            "status": status,
+            "updated_at": datetime.now().isoformat(),
+            **kwargs
+        }
+        redis_client.set(f"task:{task_id}", json.dumps(task_data, default=str))
+        log.info("Statut mis à jour", task_id=task_id, status=status)
+
+    try:
+        # Mettre à jour le statut à "running"
+        update_task_status("running", current_step="Initialisation de la recette")
+
+        # Import dynamique du module de la recette
+        module_name = f'packs.{recipe_id}.graph_modern'
+        module = importlib.import_module(module_name)
+
+        if not hasattr(module, 'execute'):
+            raise AttributeError(f"Le module {module_name} n'a pas de fonction 'execute'")
+
+        log.info("Module importé avec succès", module_name=module_name)
+
+        # Exécution de la recette avec gestion des interruptions
+        update_task_status("running", current_step="Exécution de la recette")
+
+        async def run_recipe():
+            """Fonction async wrapper pour l'exécution"""
+            try:
+                # Si c'est une reprise, ajouter les données de reprise aux inputs
+                if is_resume and human_input_response:
+                    # Récupérer l'état sauvegardé depuis Redis
+                    saved_task_data = redis_client.get(f"task:{task_id}")
+                    if saved_task_data:
+                        saved_data = json.loads(saved_task_data)
+                        # Ajouter l'état sauvegardé et la réponse utilisateur aux inputs
+                        inputs["saved_state"] = saved_data
+                        inputs["human_input_response"] = human_input_response
+                        log.info("État sauvegardé récupéré pour reprise", task_id=task_id)
+
+                result = await module.execute(inputs)
+
+                # Debug: Log du type et contenu du résultat pour diagnostic
+                print(f"WORKER DEBUG: Type de résultat: {type(result)}")
+                print(f"WORKER DEBUG: Contenu résultat (is dict): {isinstance(result, dict)}")
+                if isinstance(result, dict):
+                    print(f"WORKER DEBUG: Clés du résultat: {list(result.keys())}")
+                    print(f"WORKER DEBUG: needs_human_input = {result.get('needs_human_input')}")
+
+                # Vérifier si la recette a été interrompue pour interaction humaine
+                if isinstance(result, dict) and result.get("needs_human_input"):
+                    log.info("Interaction humaine requise", task_id=task_id)
+
+                    # Créer correctement l'objet human_input_request
+                    current_question = result.get("current_question", "Informations requises")
+                    missing_fields = result.get("missing_fields", [])
+                    conversation_history = result.get("conversation_history", [])
+
+                    human_input_request = {
+                        "question": current_question,
+                        "input_type": "form",
+                        "context": f"Champs manquants: {', '.join(missing_fields)}" if missing_fields else None
+                    }
+
+                    # Mettre le statut en attente d'input avec l'état complet du graphe
+                    update_task_status(
+                        "waiting_for_human_input",
+                        current_step="Attente de la réponse utilisateur",
+                        human_input_request=human_input_request,
+                        conversation_history=conversation_history,
+                        message="L'agent attend votre réponse pour continuer",
+                        graph_state=result  # Sauvegarder l'état complet pour la reprise
+                    )
+
+                    # Log pour debug
+                    print(f"WORKER: État sauvegardé pour human-in-the-loop - task {task_id}")
+                    if result.get("consolidated_data"):
+                        print(f"WORKER: Données consolidées sauvegardées: {len(result.get('consolidated_data', {}))} champs")
+
+                    return None  # Signal que la tâche est en pause
+
+                # Vérifier si le graphe LangGraph a été interrompu à l'état waiting_for_human_input
+                elif hasattr(result, '__dict__') and hasattr(result, 'get'):
+                    current_state = getattr(result, 'values', lambda: {})()
+                    if current_state.get('_current_state') == 'waiting_for_human_input':
+                        log.info("Graphe LangGraph interrompu pour interaction humaine", task_id=task_id)
+
+                        # Extraire les informations du checkpoint
+                        missing_critical = current_state.get('missing_critical', [])
+                        current_question = current_state.get('current_question', '')
+
+                        # Mettre à jour le statut pour le frontend
+                        update_task_status(
+                            "waiting_for_human_input",
+                            current_step="Collecte d'informations manquantes",
+                            missing_fields=missing_critical,
+                            current_question=current_question,
+                            message=current_question,
+                            checkpoint_id=getattr(result, 'config', {}).get('configurable', {}).get('thread_id')
+                        )
+
+                        return None  # Signal que la tâche est en pause
+
+                return result
+
+            except Exception as e:
+                # Vérifier si c'est une interruption LangGraph normale
+                error_str = str(e)
+                if "GraphInterrupt" in error_str or "waiting_for_human_input" in error_str:
+                    log.info("Interruption LangGraph détectée pour interaction humaine", task_id=task_id, error=error_str)
+
+                    # Extraire les informations d'erreur pour le human-in-the-loop
+                    update_task_status(
+                        "waiting_for_human_input",
+                        current_step="Collecte d'informations manquantes",
+                        message="L'agent a besoin d'informations supplémentaires pour continuer",
+                        error_context=error_str
+                    )
+
+                    return None  # Signal que la tâche est en pause
+
+                log.error("Erreur dans l'exécution async", error=str(e))
+                raise
+
+        # Exécuter la recette
+        result = asyncio.run(run_recipe())
+
+        # Si result est None, la tâche est en pause - ne rien faire de plus
+        if result is None:
+            log.info("Tâche en pause pour interaction utilisateur", task_id=task_id)
+            return
+
+        log.info("Exécution terminée avec succès",
+                recipe_id=recipe_id,
+                task_id=task_id,
+                result_keys=list(result.keys()) if isinstance(result, dict) else "non-dict")
+
+        # Sauvegarde du résultat final
+        update_task_status(
+            "completed",
+            result=result,
+            message="Recette exécutée avec succès",
+            current_step="Terminé"
+        )
+
+    except ImportError as e:
+        error_msg = f"Impossible d'importer le module de la recette '{recipe_id}': {str(e)}"
+        log.error(error_msg, recipe_id=recipe_id, task_id=task_id)
+        update_task_status("error", error=error_msg, error_type="import_error")
+
+    except AttributeError as e:
+        error_msg = f"Fonction 'execute' manquante dans la recette '{recipe_id}': {str(e)}"
+        log.error(error_msg, recipe_id=recipe_id, task_id=task_id)
+        update_task_status("error", error=error_msg, error_type="missing_function")
+
+    except Exception as e:
+        error_msg = f"Erreur lors de l'exécution de la recette '{recipe_id}': {str(e)}"
+        log.error(error_msg, recipe_id=recipe_id, task_id=task_id, error=str(e))
+        update_task_status("error", error=error_msg, error_type="execution_error")
+
 
 @celery_app.task(name="execute_recipe_graph")
 def execute_recipe_graph(task_id: str, state: dict):
     """
     Tâche Celery qui exécute ou continue un graphe de recette.
+
+    DEPRECATED: Cette fonction sera remplacée par execute_recipe_task
+    dans la nouvelle architecture. Conservée pour compatibilité temporaire.
     """
     print(f"WORKER: Exécution du graphe pour la tâche {task_id}")
 
     # LangGraph n'est pas nativement compatible avec l'async dans Celery,
     # nous utilisons donc asyncio.run pour exécuter la coroutine.
     import asyncio
+    import os
+    import importlib.util
 
     try:
-        # Exécuter le graphe avec l'état fourni
-        final_state = asyncio.run(form_3916_graph_modern.ainvoke(state))
+        # CORRECTION: Utiliser la même logique que execute_recipe_task
+        # pour supporter la reprise et les human_input_response
+
+        # Récupérer les inputs originaux depuis Redis si possible
+        task_data = redis_client.get(f"task:{task_id}")
+        original_inputs = {}
+        if task_data:
+            saved_data = json.loads(task_data)
+            original_inputs = saved_data.get("inputs", {})
+
+        # Détecter si c'est une reprise avec human_input_response
+        is_resume = state.get("is_resume", False) or "human_input_response" in state
+
+        print(f"=== EXECUTE_RECIPE_GRAPH (LEGACY) ===")
+        print(f"Task ID: {task_id}")
+        print(f"Is resume: {is_resume}")
+        print(f"State keys: {list(state.keys())}")
+
+        if is_resume:
+            print("LEGACY: Reprise détectée, utilisation du nouveau système")
+            # Utiliser le module d'exécution comme dans execute_recipe_task
+            recipe_path = os.path.join(os.path.dirname(__file__), "..", "packs", "form_3916")
+
+            # Importer dynamiquement le module
+            spec = importlib.util.spec_from_file_location("form_3916_pack", os.path.join(recipe_path, "graph_modern.py"))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # Préparer les inputs pour la reprise
+            resume_inputs = {
+                **original_inputs,
+                **state,
+                "is_resume": True,
+                "task_id": task_id
+            }
+
+            print(f"LEGACY: Resume inputs keys: {list(resume_inputs.keys())}")
+
+            # Exécuter avec le nouveau système
+            final_state = asyncio.run(module.execute(resume_inputs))
+        else:
+            print("LEGACY: Exécution normale (pas de reprise)")
+            # Comportement original pour compatibilité
+            final_state = asyncio.run(form_3916_graph_modern.ainvoke(state))
 
         # Déterminer le statut selon l'état retourné
         task_status = {"task_id": task_id}

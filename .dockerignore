@@ -1,0 +1,87 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+.dockerignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables (ne PAS inclure dans l'image)
+.env
+.env.local
+.env.*.local
+
+# Tests
+app/tests/
+tests/
+*.test.py
+test_*.py
+pytest_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+docs/
+*.md
+README.md
+LICENSE
+
+# Frontend (pas utilisé pour DéMé)
+frontend/
+node_modules/
+
+# Logs
+*.log
+logs/
+app/mcp_server/mcp_server.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+app/form3916_states.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+test_files/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Development scripts
+scripts/
+*.sh

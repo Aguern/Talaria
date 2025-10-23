@@ -33,6 +33,7 @@ class Form3916StateModern(TypedDict):
     pdf_data: Optional[dict]
     generated_pdf: Optional[bytes]
     skip_optional: bool  # Flag pour ignorer les champs optionnels
+    iteration_count: int  # Compteur pour éviter les boucles infinies
 
 # ==================== DÉFINITION DES CHAMPS ====================
 
@@ -85,21 +86,39 @@ async def classify_documents(state: Form3916StateModern) -> dict:
 
     return {"classified_docs": classified_results, "input_files": []}
 
-async def extract_from_all_documents(state: Form3916StateModern) -> dict:
-    """Extraction parallèle depuis tous les documents."""
-    print("--- NŒUD: EXTRACTION MULTI-DOCUMENTS ---")
+async def extract_from_all_documents_direct(state: Form3916StateModern) -> dict:
+    """Extraction directe universelle sans classification préalable."""
+    print("--- NŒUD: EXTRACTION DIRECTE UNIVERSELLE ---")
 
     extraction_tasks = []
-    for doc in state["classified_docs"]:
-        # Extraire de TOUS les documents, même INCONNU
-        task = data_extractor.extract_data_from_document(
-            doc["text"], doc["doc_type"]
-        )
+    processed_files = []
+
+    for file_info in state["input_files"]:
+        filename = list(file_info.keys())[0]
+        file_content = file_info[filename]
+        text = document_parser.extract_text_from_file(file_content)
+
+        # Extraction universelle - l'IA comprend le contexte et extrait ce qui est pertinent
+        task = data_extractor.extract_data_from_document_universal(text, filename)
         extraction_tasks.append(task)
-        print(f"  > Extraction: '{doc['filename']}' ({doc['doc_type'].name})")
+
+        processed_files.append({
+            "filename": filename,
+            "text": text
+        })
+        print(f"  > Extraction universelle: '{filename}'")
 
     extracted_results = await asyncio.gather(*extraction_tasks)
-    return {"extracted_data_list": extracted_results}
+
+    # Créer une liste de documents traités pour la compatibilité
+    classified_docs = [{"filename": f["filename"], "text": f["text"], "doc_type": "AUTO"}
+                      for f in processed_files]
+
+    return {
+        "extracted_data_list": extracted_results,
+        "classified_docs": classified_docs,
+        "input_files": []  # Vider après traitement
+    }
 
 def consolidate_data(state: Form3916StateModern) -> dict:
     """Consolidation des données extraites."""
@@ -195,9 +214,76 @@ async def analyze_user_context(state: Form3916StateModern) -> dict:
 
     return {"consolidated_data": consolidated}
 
+def human_validation_node(state: Form3916StateModern) -> dict:
+    """
+    Nœud de validation humaine pour le mode conversationnel.
+    Simule une demande d'aide à l'utilisateur si certains documents manquent.
+    """
+    print("\n🤖 === VALIDATION HUMAINE ===")
+
+    # Analyser les documents disponibles
+    documents = state.get("documents", [])
+    print(f"  Documents fournis: {len(documents)}")
+
+    # Simuler la vérification de documents manquants
+    # Dans un cas réel, on analyserait le contenu des documents
+    required_docs = ["RIB", "CNI", "relevé bancaire"]
+    found_docs = []
+
+    # Simulation basique - dans la réalité on analyserait le contenu
+    if len(documents) >= 1:
+        found_docs.append("RIB")
+    if len(documents) >= 2:
+        found_docs.append("CNI")
+    if len(documents) >= 3:
+        found_docs.append("relevé bancaire")
+
+    missing_docs = [doc for doc in required_docs if doc not in found_docs]
+
+    if missing_docs and len(documents) < 2:
+        # Déclencher une demande d'interaction humaine
+        print(f"  Documents manquants détectés: {', '.join(missing_docs)}")
+
+        # Préparer la demande d'input utilisateur
+        human_input_request = {
+            "question": f"J'ai analysé vos documents et j'ai trouvé un {found_docs[0] if found_docs else 'document'}. "
+                       f"Pour compléter le formulaire 3916, il me manque encore: {', '.join(missing_docs)}. "
+                       f"Pouvez-vous fournir ces documents ?",
+            "input_type": "file",
+            "context": "Documents requis pour le formulaire 3916: RIB du compte étranger, pièce d'identité, relevés bancaires"
+        }
+
+        # Simuler la mise en pause pour attendre l'input utilisateur
+        # Dans un vrai système, ceci déclencherait une mise en pause de LangGraph
+        return {
+            "needs_human_input": True,
+            "human_input_request": human_input_request,
+            "status": "waiting_for_human_input"
+        }
+
+    print("  ✅ Documents suffisants pour continuer")
+    return {
+        "needs_human_input": False,
+        "validation_complete": True
+    }
+
 def check_completeness_adaptive(state: Form3916StateModern) -> dict:
     """Vérification adaptative de la complétude."""
     print("--- NŒUD: VÉRIFICATION COMPLÉTUDE ADAPTATIVE ---")
+
+    # Protection contre la récursion infinie
+    iteration_count = state.get("iteration_count", 0) + 1
+    print(f"  > Itération #{iteration_count}")
+
+    # Si trop d'itérations, forcer la génération du PDF
+    if iteration_count > 3:
+        print("  ! Limite d'itérations atteinte - génération forcée du PDF")
+        return {
+            "missing_critical": [],
+            "missing_optional": [],
+            "iteration_count": iteration_count,
+            "_force_pdf": True
+        }
 
     data = state.get("consolidated_data", {})
 
@@ -207,7 +293,8 @@ def check_completeness_adaptive(state: Form3916StateModern) -> dict:
         return {
             "missing_critical": [],
             "missing_optional": [],
-            "_needs_user_input": False
+            "_needs_user_input": False,
+            "iteration_count": iteration_count
         }
 
     # Séparer les champs manquants en critiques et optionnels
@@ -223,11 +310,12 @@ def check_completeness_adaptive(state: Form3916StateModern) -> dict:
 
     return {
         "missing_critical": missing_critical,
-        "missing_optional": missing_optional
+        "missing_optional": missing_optional,
+        "iteration_count": iteration_count
     }
 
 def collect_critical_data(state: Form3916StateModern) -> dict:
-    """Collecte des données critiques avec interruption."""
+    """Collecte des données critiques - termine le graphe pour human-in-the-loop."""
     print("--- NŒUD: COLLECTE DONNÉES CRITIQUES ---")
 
     critical = state.get("missing_critical", [])
@@ -236,54 +324,31 @@ def collect_critical_data(state: Form3916StateModern) -> dict:
         return {}
 
     print(f"  > Champs critiques manquants: {critical}")
+    print(f"  > Terminaison du graphe pour human-in-the-loop")
 
-    # Si on a un checkpointer, utiliser interrupt()
-    # Sinon, juste retourner l'état pour que l'utilisateur puisse le reprendre
-    try:
-        response = interrupt({
-            "type": "critical",
-            "fields": critical,
-            "message": f"Ces informations sont obligatoires pour générer le formulaire:\n"
-                      f"{', '.join(critical)}\n"
-                      f"Veuillez fournir ces informations sous forme de dictionnaire JSON.",
-            "example": {field: f"valeur_{field}" for field in critical}
-        })
+    # Créer un message clair pour l'utilisateur
+    field_labels = {
+        "nom": "Nom",
+        "prenom": "Prénom",
+        "date_naissance": "Date de naissance (JJ.MM.AAAA)",
+        "lieu_naissance": "Lieu de naissance",
+        "adresse_complete": "Adresse complète",
+        "numero_compte": "Numéro de compte",
+        "designation_etablissement": "Nom de l'établissement bancaire"
+    }
 
-        # Mise à jour des données consolidées
-        consolidated = state.get("consolidated_data", {})
+    message = "Pour compléter le formulaire 3916, j'ai besoin des informations suivantes :\n\n"
+    for field in critical:
+        label = field_labels.get(field, field)
+        message += f"• {label}\n"
 
-        if isinstance(response, dict):
-            consolidated.update(response)
-            print(f"  > Données reçues: {list(response.keys())}")
-
-        return {"consolidated_data": consolidated}
-
-    except Exception as e:
-        # Si interrupt() échoue (pas de checkpointer), retourner l'état tel quel
-        print(f"  ⚠ Interruption non disponible (pas de checkpointer)")
-        print(f"    Les champs suivants sont requis: {critical}")
-
-        # Créer un message clair pour l'utilisateur
-        field_labels = {
-            "nom": "Nom",
-            "prenom": "Prénom",
-            "date_naissance": "Date de naissance (JJ/MM/AAAA)",
-            "lieu_naissance": "Lieu de naissance",
-            "adresse_complete": "Adresse complète"
-        }
-
-        message = "Pour compléter le formulaire 3916, j'ai besoin des informations suivantes :\n\n"
-        for field in critical:
-            label = field_labels.get(field, field)
-            message += f"• {label}\n"
-
-        # Marquer qu'on a besoin d'intervention
-        return {
-            "missing_critical": critical,
-            "_needs_user_input": True,
-            "_input_type": "critical",
-            "_message": message
-        }
+    # Retourner l'état avec les champs manquants - le graphe se termine ici
+    return {
+        "missing_critical": critical,
+        "_needs_user_input": True,
+        "_input_type": "critical",
+        "_message": message
+    }
 
 def collect_optional_data(state: Form3916StateModern) -> dict:
     """Collecte des données optionnelles avec possibilité de skip."""
@@ -423,56 +488,37 @@ def create_modern_form3916_graph(use_checkpointer: bool = False):
         use_checkpointer: Active la persistance avec SQLite (dev) ou PostgreSQL (prod)
     """
 
-    # Checkpointer optionnel pour la persistance
+    # Checkpointer avec MemorySaver pour simplicité et fiabilité
     checkpointer = None
     if use_checkpointer:
-        # Détection automatique selon l'environnement
-        database_url = os.getenv("DATABASE_URL", "")
-
-        if "postgresql" in database_url:
-            # Production: PostgreSQL
-            try:
-                from langgraph.checkpoint.postgres import PostgresSaver
-                # Extract connection params from DATABASE_URL
-                # Format: postgresql+asyncpg://user:pass@host:port/db
-                import re
-                match = re.match(r'postgresql\+asyncpg://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', database_url)
-                if match:
-                    user, password, host, port, dbname = match.groups()
-                    checkpointer = PostgresSaver.from_conn_string(
-                        f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
-                    )
-                    print("✓ Checkpointer PostgreSQL activé")
-            except ImportError:
-                print("⚠ PostgreSQL checkpointer non disponible, désactivé")
-        else:
-            # Développement: SQLite
-            try:
-                from langgraph.checkpoint.sqlite import SqliteSaver
-                checkpointer = SqliteSaver.from_conn_string("sqlite:///form3916_states.db")
-                print("✓ Checkpointer SQLite activé")
-            except ImportError:
-                print("⚠ SQLite checkpointer non disponible, désactivé")
+        print("Configuration du checkpointer MemorySaver...")
+        try:
+            from langgraph.checkpoint.memory import MemorySaver
+            checkpointer = MemorySaver()
+            print("✓ Checkpointer MemorySaver activé - human-in-the-loop disponible")
+        except Exception as e:
+            print(f"❌ Impossible d'activer MemorySaver: {e}")
+            print("  Le human-in-the-loop ne sera pas disponible")
 
     # Création du graphe d'état
     workflow = StateGraph(Form3916StateModern)
 
     # Ajout des nœuds
-    workflow.add_node("classify", classify_documents)
-    workflow.add_node("extract", extract_from_all_documents)
+    workflow.add_node("extract_direct", extract_from_all_documents_direct)
     workflow.add_node("consolidate", consolidate_data)
     workflow.add_node("analyze_context", analyze_user_context)
+    workflow.add_node("human_validation", human_validation_node)  # Nouveau nœud pour validation humaine
     workflow.add_node("check_completeness", check_completeness_adaptive)
     workflow.add_node("collect_critical", collect_critical_data)
     workflow.add_node("collect_optional", collect_optional_data)
     workflow.add_node("generate_pdf", generate_pdf_flexible)
 
-    # Flux principal séquentiel
-    workflow.set_entry_point("classify")
-    workflow.add_edge("classify", "extract")
-    workflow.add_edge("extract", "consolidate")
+    # Flux principal séquentiel - extraction directe sans classification
+    workflow.set_entry_point("extract_direct")
+    workflow.add_edge("extract_direct", "consolidate")
     workflow.add_edge("consolidate", "analyze_context")
-    workflow.add_edge("analyze_context", "check_completeness")
+    workflow.add_edge("analyze_context", "human_validation")
+    workflow.add_edge("human_validation", "check_completeness")
 
     # Routage conditionnel après vérification
     workflow.add_conditional_edges(
@@ -486,9 +532,8 @@ def create_modern_form3916_graph(use_checkpointer: bool = False):
         }
     )
 
-    # Retour après collecte de données - Seulement si interrupt a fonctionné
-    # Si pas de checkpointer, collect_critical et collect_optional terminent directement
-    # pour éviter la boucle infinie
+    # Retour après collecte de données
+    # collect_critical termine le graphe directement (interrupt)
     workflow.add_edge("collect_critical", END)
     workflow.add_edge("collect_optional", "check_completeness")
 
@@ -529,7 +574,8 @@ async def execute_with_context(files: List[Dict[str, bytes]], context: str = Non
         "missing_optional": [],
         "skip_optional": False,
         "pdf_data": None,
-        "generated_pdf": None
+        "generated_pdf": None,
+        "iteration_count": 0
     }
 
     # Configuration du thread pour la persistance
@@ -614,5 +660,249 @@ async def resume_workflow_with_data(
 
     return result
 
-# Export pour utilisation
-form_3916_graph_modern = create_modern_form3916_graph(use_checkpointer=False)
+# Export pour utilisation - réactivation du checkpointer
+form_3916_graph_modern = create_modern_form3916_graph(use_checkpointer=True)
+
+# ==================== FONCTION STANDARDISÉE POUR L'ORCHESTRATEUR ====================
+
+async def execute(inputs: dict) -> dict:
+    """
+    Point d'entrée standardisé pour l'orchestrateur de recettes.
+
+    Cette fonction respecte le contrat strict défini par l'architecture modulaire :
+    - En entrée : dictionnaire avec clés correspondant au manifest.json
+    - En sortie : dictionnaire avec clés correspondant aux outputs du manifest
+
+    Args:
+        inputs: Dict avec les clés définies dans manifest.json :
+            - "documents": List[bytes] - Contenu des fichiers uploadés
+            - "context": str (optionnel) - Contexte additionnel
+
+    Returns:
+        Dict avec les clés définies dans les outputs du manifest :
+            - "pdf_form": str - Chemin absolu vers le PDF généré
+            - "extracted_data": dict - Données extraites et consolidées
+
+    Raises:
+        ValueError: Si les inputs ne respectent pas le contrat
+        Exception: En cas d'erreur lors de l'exécution
+    """
+    import uuid
+    import os
+    from pathlib import Path
+
+    print("=== DÉBUT EXÉCUTION RECETTE FORM_3916 ===")
+    print(f"Inputs reçus: {list(inputs.keys())}")
+    print(f"GRAPH DEBUG: execute() appelée avec inputs: {inputs}")
+
+    # Détecter si c'est une reprise
+    is_resume = inputs.get("is_resume", False)
+
+    if is_resume:
+        print("=== MODE REPRISE DÉTECTÉ ===")
+        # En mode reprise, pas besoin de documents car l'extraction a déjà été faite
+        documents = []  # Vide car pas nécessaire
+        context = inputs.get("context", "")
+    else:
+        # Validation normale des inputs pour un démarrage initial
+        if "documents" not in inputs:
+            raise ValueError("Input 'documents' requis manquant")
+
+        documents = inputs["documents"]
+        context = inputs.get("context", "")
+
+    if not isinstance(documents, list):
+        raise ValueError("Input 'documents' doit être une liste")
+
+    print(f"Nombre de documents: {len(documents)}")
+    print(f"Contexte fourni: {'Oui' if context else 'Non'}")
+
+    try:
+        # En mode reprise, on skip la conversion des documents car pas nécessaire
+        if is_resume:
+            input_files = []  # Vide car nous utiliserons les données consolidées
+        else:
+            # Conversion des inputs au format attendu par le graphe existant
+            input_files = []
+            for i, content in enumerate(documents):
+                # Chaque document est encapsulé dans un dict avec un nom générique
+                document_name = f"document_{i+1}"
+                input_files.append({document_name: content})
+
+        print(f"Fichiers d'entrée préparés: {len(input_files)}")
+
+        # Préparation de l'état initial pour le graphe
+        initial_state = {
+            "input_files": input_files,
+            "user_context": context,
+            "classified_docs": [],
+            "extracted_data_list": [],
+            "consolidated_data": {},
+            "missing_critical": [],
+            "missing_optional": [],
+            "skip_optional": False,
+            "pdf_data": None,
+            "generated_pdf": None,
+            "iteration_count": 0
+        }
+
+        # Vérifier s'il s'agit d'une reprise avec des données utilisateur
+        if inputs.get("is_resume") and inputs.get("human_input_response"):
+            print("=== REPRISE DÉTECTÉE ===")
+            human_response = inputs.get("human_input_response", {})
+            saved_state = inputs.get("saved_state", {})
+
+            # Récupérer l'état sauvegardé pour reprendre où on s'était arrêté
+            if saved_state:
+                print("=== RESTAURATION DE L'ÉTAT SAUVEGARDÉ ===")
+                print(f"Clés disponibles dans saved_state: {list(saved_state.keys())}")
+
+                # Récupérer les données de l'état précédent
+                if "graph_state" in saved_state:
+                    graph_state = saved_state["graph_state"]
+                    print(f"Clés dans graph_state: {list(graph_state.keys())}")
+
+                    for key, value in graph_state.items():
+                        if key in initial_state:
+                            initial_state[key] = value
+                            if key == "consolidated_data" and isinstance(value, dict):
+                                print(f"Restauré consolidated_data: {len(value)} champs - {list(value.keys())}")
+                            else:
+                                print(f"Restauré: {key}")
+
+                # Vérification de la consolidation des données après restauration
+                restored_data = initial_state.get("consolidated_data", {})
+                print(f"  > Données consolidées restaurées: {len(restored_data)} champs")
+                if restored_data:
+                    print(f"  > Champs disponibles: {list(restored_data.keys())}")
+            else:
+                print("=== AUCUN ÉTAT SAUVEGARDÉ TROUVÉ ===")
+                print("Ceci peut indiquer un problème de sauvegarde lors du human-in-the-loop")
+
+            # Traiter la réponse utilisateur (JSON string contenant les champs)
+            user_response_str = human_response.get("response", "{}")
+            try:
+                import json
+                user_data = json.loads(user_response_str)
+                print(f"Données utilisateur reçues: {list(user_data.keys())}")
+
+                # Ajouter les données utilisateur aux données consolidées
+                if not initial_state.get("consolidated_data"):
+                    initial_state["consolidated_data"] = {}
+
+                print(f"  > Avant fusion - données consolidées: {len(initial_state['consolidated_data'])} champs")
+                print(f"  > Données utilisateur à fusionner: {len(user_data)} champs - {list(user_data.keys())}")
+
+                # Fusionner les données utilisateur avec les données existantes
+                initial_state["consolidated_data"].update(user_data)
+
+                # Marquer les champs comme complétés
+                initial_state["missing_critical"] = []
+                initial_state["iteration_count"] = initial_state.get("iteration_count", 0) + 1
+
+                print(f"  > Après fusion - données consolidées: {len(initial_state['consolidated_data'])} champs")
+                print(f"  > Tous champs disponibles: {list(initial_state['consolidated_data'].keys())}")
+
+            except json.JSONDecodeError as e:
+                print(f"Erreur lors du parsing des données utilisateur: {e}")
+
+        print("État initial préparé, lancement du graphe...")
+
+        # Configuration pour le checkpointer
+        thread_config = {"configurable": {"thread_id": f"recipe_execution_{uuid.uuid4()}"}}
+
+        # Exécution du graphe existant avec configuration
+        final_state = await form_3916_graph_modern.ainvoke(initial_state, config=thread_config)
+
+        print("Exécution du graphe terminée")
+        print(f"État final: {list(final_state.keys())}")
+
+        # Vérification que le PDF a été généré ou si on a besoin d'input utilisateur
+        if not final_state.get("generated_pdf"):
+            # Si des champs critiques manquent, toujours retourner l'état human-in-the-loop
+            missing_critical = final_state.get("missing_critical", [])
+            input_message = final_state.get("_message", "")
+
+            if missing_critical:
+                print(f"INTERRUPTION: Human-in-the-loop requis pour: {missing_critical}")
+
+                # Créer un message par défaut si nécessaire
+                if not input_message:
+                    field_labels = {
+                        "nom": "Nom", "prenom": "Prénom",
+                        "date_naissance": "Date de naissance (JJ.MM.AAAA)",
+                        "lieu_naissance": "Lieu de naissance",
+                        "adresse_complete": "Adresse complète",
+                        "numero_compte": "Numéro de compte",
+                        "designation_etablissement": "Nom de l'établissement bancaire"
+                    }
+                    input_message = "Pour compléter le formulaire 3916, j'ai besoin des informations suivantes :\n\n"
+                    for field in missing_critical:
+                        label = field_labels.get(field, field)
+                        input_message += f"• {label}\n"
+
+                # Retourner un état spécial pour le human-in-the-loop
+                print(f"GRAPH DEBUG: Retour human-in-the-loop avec {len(final_state.get('consolidated_data', {}))} champs consolidés")
+                result = {
+                    "needs_human_input": True,
+                    "missing_fields": missing_critical,
+                    "current_question": input_message,
+                    "consolidated_data": final_state.get("consolidated_data", {}),
+                    "checkpoint_id": f"recipe_execution_{uuid.uuid4()}",  # ID unique pour reprise
+                    "status": "waiting_for_human_input",
+                    "graph_state": final_state  # Sauvegarder l'état complet du graphe pour reprise
+                }
+                print(f"GRAPH DEBUG: result keys = {list(result.keys())}")
+                return result
+            else:
+                raise Exception("Échec de la génération du PDF pour une raison inconnue")
+
+        # Sauvegarde du PDF généré
+        pdf_bytes = final_state["generated_pdf"]
+
+        # Créer un répertoire temporaire pour les outputs si nécessaire
+        output_dir = Path("/tmp/recipe_outputs")
+        output_dir.mkdir(exist_ok=True)
+
+        # Générer un nom de fichier unique
+        pdf_filename = f"form_3916_{uuid.uuid4()}.pdf"
+        pdf_path = output_dir / pdf_filename
+
+        # Écrire le PDF sur le disque
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_bytes)
+
+        print(f"PDF sauvegardé: {pdf_path}")
+        print(f"Taille du PDF: {len(pdf_bytes):,} octets")
+
+        # Préparer les données extraites pour la sortie
+        extracted_data = final_state.get("consolidated_data", {})
+
+        # Ajouter des métadonnées sur le traitement
+        from datetime import datetime
+        extracted_data["_metadata"] = {
+            "processing_date": datetime.now().isoformat(),
+            "document_count": len(documents),
+            "context_provided": bool(context),
+            "missing_optional": final_state.get("missing_optional", []),
+            "pdf_size_bytes": len(pdf_bytes)
+        }
+
+        print(f"Données extraites: {len(extracted_data)} champs")
+
+        # Construction de la réponse selon le contrat de sortie
+        result = {
+            "pdf_form": str(pdf_path.absolute()),  # Chemin absolu requis
+            "extracted_data": extracted_data
+        }
+
+        print("=== EXÉCUTION TERMINÉE AVEC SUCCÈS ===")
+        print(f"Outputs générés: {list(result.keys())}")
+
+        return result
+
+    except Exception as e:
+        print(f"=== ERREUR LORS DE L'EXÉCUTION ===")
+        print(f"Type d'erreur: {type(e).__name__}")
+        print(f"Message: {str(e)}")
+        raise

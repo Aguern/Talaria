@@ -60,6 +60,16 @@ const config: NextConfig = {
         destination: 'http://localhost:8000/api/upload',
       },
 
+      // Routes des recettes
+      {
+        source: '/api/recipes',
+        destination: 'http://localhost:8000/api/recipes/',
+      },
+      {
+        source: '/api/recipes/:path+',
+        destination: 'http://localhost:8000/api/recipes/:path*',
+      },
+
       // Routes des packs
       {
         source: '/packs/:path*',

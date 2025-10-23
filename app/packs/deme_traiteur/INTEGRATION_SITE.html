@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demande de Prestation - DéMé Traiteur</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            margin-top: 10px;
+        }
+        .checkbox-group label {
+            font-weight: normal;
+            display: inline-block;
+            margin-right: 15px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .message {
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Demande de Prestation</h1>
+
+    <form id="prestationForm">
+        <div class="form-group">
+            <label for="nom_complet">Nom complet *</label>
+            <input type="text" id="nom_complet" name="nom_complet" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+            <label for="telephone">Téléphone</label>
+            <input type="tel" id="telephone" name="telephone" placeholder="0612345678">
+        </div>
+
+        <div class="form-group">
+            <label for="adresse">Adresse</label>
+            <input type="text" id="adresse" name="adresse">
+        </div>
+
+        <div class="form-group">
+            <label for="ville">Ville</label>
+            <input type="text" id="ville" name="ville">
+        </div>
+
+        <div class="form-group">
+            <label for="type_client">Type de client</label>
+            <select id="type_client" name="type_client">
+                <option value="Particulier">Particulier</option>
+                <option value="Entreprise">Entreprise</option>
+                <option value="Association">Association</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="date">Date de la prestation *</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+
+        <div class="form-group">
+            <label for="pax">Nombre de personnes *</label>
+            <input type="number" id="pax" name="pax" min="1" required>
+        </div>
+
+        <div class="form-group">
+            <label for="moment">Moment</label>
+            <select id="moment" name="moment">
+                <option value="Midi">Déjeuner</option>
+                <option value="Soir">Dîner</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Options de menu</label>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" name="options" value="Entrées (Charcuterie et Fromages)">
+                    Entrées (Charcuterie et Fromages)
+                </label>
+                <br>
+                <label>
+                    <input type="checkbox" name="options" value="Pâtes (Truffes, Carbonara, Ragù,...)">
+                    Pâtes (Truffes, Carbonara, Ragù,...)
+                </label>
+                <br>
+                <label>
+                    <input type="checkbox" name="options" value="Desserts (Tiramisù, Panna cotta, Canollis)">
+                    Desserts (Tiramisù, Panna cotta, Canollis)
+                </label>
+            </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Envoyer la demande</button>
+    </form>
+
+    <div id="message" class="message"></div>
+
+    <script>
+        // ⚠️ REMPLACE CETTE URL PAR TON URL RENDER
+        const WEBHOOK_URL = 'https://deme-api.onrender.com/api/packs/deme-traiteur/webhook';
+
+        document.getElementById('prestationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+
+            // Désactiver le bouton et afficher un loader
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Traitement en cours...';
+            messageDiv.style.display = 'none';
+
+            // Récupérer les données du formulaire
+            const formData = new FormData(e.target);
+            const options = formData.getAll('options');
+
+            const data = {
+                nom_complet: formData.get('nom_complet'),
+                email: formData.get('email'),
+                telephone: formData.get('telephone') || '',
+                adresse: formData.get('adresse') || '',
+                ville: formData.get('ville') || '',
+                type_client: formData.get('type_client') || 'Particulier',
+                date: formData.get('date'),
+                pax: parseInt(formData.get('pax')),
+                moment: formData.get('moment') || 'Midi',
+                options: options
+            };
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Succès
+                    messageDiv.className = 'message success';
+                    messageDiv.textContent = '✅ Votre demande a été enregistrée avec succès ! Nous vous recontacterons très prochainement.';
+                    messageDiv.style.display = 'block';
+
+                    // Réinitialiser le formulaire
+                    e.target.reset();
+                } else {
+                    // Erreur serveur
+                    messageDiv.className = 'message error';
+                    messageDiv.textContent = '❌ Une erreur est survenue : ' + (result.message || 'Erreur inconnue');
+                    messageDiv.style.display = 'block';
+                }
+            } catch (error) {
+                // Erreur réseau
+                messageDiv.className = 'message error';
+                messageDiv.textContent = '❌ Erreur de connexion. Veuillez vérifier votre connexion internet et réessayer.';
+                messageDiv.style.display = 'block';
+                console.error('Error:', error);
+            } finally {
+                // Réactiver le bouton
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Envoyer la demande';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "id": "form_3916",
+  "name": "Formulaire 3916 - Déclaration de comptes étrangers",
+  "description": "Automatisation du remplissage du formulaire fiscal 3916 pour la déclaration de comptes bancaires étrangers",
+  "version": "1.0.0",
+  "category": "fiscal",
+  "author": "SaaS NR - Équipe Talaria",
+  "interaction_mode": "conversational",
+  "inputs": [
+    {
+      "name": "documents",
+      "description": "Documents d'identité, RIB, relevés bancaires, etc.",
+      "type": "file",
+      "required": true,
+      "multiple": true
+    },
+    {
+      "name": "context",
+      "description": "Contexte additionnel optionnel fourni par l'utilisateur",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "pdf_form",
+      "description": "Formulaire 3916 rempli au format PDF",
+      "type": "file_pdf"
+    },
+    {
+      "name": "extracted_data",
+      "description": "Données extraites et consolidées depuis les documents",
+      "type": "json"
+    }
+  ],
+  "tags": ["fiscal", "formulaire", "3916", "banque", "etranger"],
+  "requirements": ["LangGraph", "OpenAI API", "PDF manipulation"]
+}

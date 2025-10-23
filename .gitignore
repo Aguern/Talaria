@@ -62,3 +62,16 @@ venv.bak
 # IDE specific files
 .idea/
 .vscode/
+.DS_Store
+
+# Logs
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Test files
+test_files/
+tests/

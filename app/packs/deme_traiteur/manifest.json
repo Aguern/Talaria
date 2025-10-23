@@ -1,0 +1,124 @@
+{
+  "id": "deme_traiteur",
+  "name": "DéMé Traiteur - Traitement des Demandes",
+  "description": "Automatisation complète du traitement des demandes de prestation reçues via le formulaire web. Crée/met à jour le client dans Notion, crée la prestation et les lignes de devis, génère un événement Google Calendar et prépare le devis sur Google Sheet.",
+  "version": "1.0.0",
+  "category": "traiteur",
+  "inputs": [
+    {
+      "name": "nom_complet",
+      "type": "text",
+      "required": true,
+      "description": "Nom complet du client"
+    },
+    {
+      "name": "email",
+      "type": "text",
+      "required": true,
+      "description": "Email du client"
+    },
+    {
+      "name": "telephone",
+      "type": "text",
+      "required": false,
+      "description": "Numéro de téléphone du client"
+    },
+    {
+      "name": "adresse",
+      "type": "text",
+      "required": false,
+      "description": "Adresse du client"
+    },
+    {
+      "name": "ville",
+      "type": "text",
+      "required": false,
+      "description": "Ville du client"
+    },
+    {
+      "name": "type_client",
+      "type": "text",
+      "required": false,
+      "description": "Type de client (Particulier, Entreprise, etc.)"
+    },
+    {
+      "name": "date",
+      "type": "text",
+      "required": true,
+      "description": "Date de la prestation (format ISO: YYYY-MM-DD)"
+    },
+    {
+      "name": "pax",
+      "type": "number",
+      "required": true,
+      "description": "Nombre de personnes"
+    },
+    {
+      "name": "moment",
+      "type": "text",
+      "required": false,
+      "description": "Moment de la prestation (Déjeuner, Dîner, etc.)"
+    },
+    {
+      "name": "nom_prestation",
+      "type": "text",
+      "required": false,
+      "description": "Nom de la prestation (généré automatiquement si non fourni)"
+    },
+    {
+      "name": "options",
+      "type": "json",
+      "required": false,
+      "description": "Liste des catégories/options choisies pour le devis (tableau de noms d'items du catalogue)"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "client_id",
+      "type": "text",
+      "description": "ID Notion du client (créé ou existant)"
+    },
+    {
+      "name": "prestation_id",
+      "type": "text",
+      "description": "ID Notion de la prestation créée"
+    },
+    {
+      "name": "prestation_url",
+      "type": "text",
+      "description": "URL de la page Notion de la prestation"
+    },
+    {
+      "name": "calendar_event_id",
+      "type": "text",
+      "description": "ID de l'événement Google Calendar créé"
+    },
+    {
+      "name": "calendar_event_link",
+      "type": "text",
+      "description": "Lien vers l'événement Google Calendar"
+    },
+    {
+      "name": "devis_sheet_id",
+      "type": "text",
+      "description": "ID du Google Sheet créé pour le devis"
+    },
+    {
+      "name": "devis_sheet_link",
+      "type": "text",
+      "description": "Lien vers le Google Sheet du devis"
+    },
+    {
+      "name": "devis_lines_count",
+      "type": "number",
+      "description": "Nombre de lignes de devis créées"
+    }
+  ],
+  "tags": ["traiteur", "notion", "google-calendar", "google-sheets", "automation"],
+  "requirements": [
+    "Notion API",
+    "Google Calendar API",
+    "Google Drive API",
+    "Google Sheets API"
+  ]
+}

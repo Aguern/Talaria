@@ -1,8 +1,36 @@
 # Fichier: app/core/schemas.py
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Literal
 from datetime import datetime
+
+# Schémas pour la standardisation des recettes
+class InputParameter(BaseModel):
+    name: str
+    description: str
+    type: Literal['file', 'text', 'number', 'boolean', 'json']
+    required: bool = True
+    multiple: bool = False  # Pour gérer les inputs multiples (ex: plusieurs fichiers)
+
+class OutputValue(BaseModel):
+    name: str
+    description: str
+    type: Literal['file_pdf', 'file_csv', 'json', 'text', 'number']
+
+class RecipeManifest(BaseModel):
+    id: str
+    name: str
+    description: str
+    version: str
+    category: Optional[str] = None  # Ex: "fiscal", "legal", "administrative"
+    author: Optional[str] = None
+    inputs: List[InputParameter]
+    outputs: List[OutputValue]
+    tags: Optional[List[str]] = None  # Pour faciliter la recherche
+    requirements: Optional[List[str]] = None  # Dépendances spécifiques
+
+    class Config:
+        from_attributes = True
 
 # Schémas pour le tenant
 class TenantBase(BaseModel):

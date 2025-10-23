@@ -24,6 +24,7 @@ langchain-text-splitters
 langgraph
 langgraph-checkpoint
 langgraph-checkpoint-postgres
+psycopg-binary
 langgraph-checkpoint-sqlite
 openai
 tiktoken
@@ -52,6 +53,11 @@ pgvector
 
 # HTTP Client
 httpx
+
+# Google APIs
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
 
 # HTML/XML Parsing
 beautifulsoup4

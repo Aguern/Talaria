@@ -14,13 +14,17 @@ from core.logging_config import setup_logging
 from core import tasks as core_tasks
 from packs.bofip import router as bofip_router
 from packs.form_3916 import router as form_3916_router
+from packs.deme_traiteur import router as deme_traiteur_router
 from api import chat as chat_router
+from api import recipes as recipes_router
 
 # Configure le logging au démarrage
 setup_logging()
 log = structlog.get_logger()
 
 app = FastAPI(title="SaaS NR - API Modulaire")
+
+# CORS supprimé - géré par le proxy Next.js
 
 # Middleware de logging CORRIGÉ pour propager le contexte
 @app.middleware("http")
@@ -58,10 +62,12 @@ async def on_startup():
         await conn.run_sync(Base.metadata.create_all)
     log.info("database tables ready")
 
-# Inclure les routes des packs
+# Inclure les routes des packs et APIs
 app.include_router(bofip_router.router)
 app.include_router(form_3916_router.router)
+app.include_router(deme_traiteur_router.router)
 app.include_router(chat_router.router, prefix="/api")
+app.include_router(recipes_router.router)  # Nouvelle API des recettes
 
 @app.post("/users", response_model=schemas.User, status_code=status.HTTP_201_CREATED, tags=["Auth"])
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):

@@ -31,7 +31,7 @@ export function AuthForm() {
       if (isLoginView) {
         await auth.login({ email, password });
         toast.success("Connexion réussie !");
-        router.push("/chat");
+        router.push("/");
       } else {
         await auth.register({ email, password, tenant_name: tenantName || undefined });
         toast.success("Compte créé avec succès !");
