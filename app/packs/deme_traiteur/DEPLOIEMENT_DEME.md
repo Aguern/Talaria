@@ -1,50 +1,47 @@
-# 🚀 Guide de Déploiement DéMé Traiteur sur Render
+# 🚀 Guide de Déploiement DéMé Traiteur sur Render (Version 2.0 - Gratuite)
+
+## 📋 Nouvelle Architecture (Gratuite sans Worker)
+
+Cette version utilise **FastAPI BackgroundTasks** au lieu de Celery, permettant un déploiement **100% gratuit** sur Render Free.
+
+### Workflow :
+1. Prospect remplit le formulaire → envoie au webhook
+2. API répond immédiatement (1-2s) : ✅ "Demande enregistrée"
+3. Workflow s'exécute en arrière-plan (30-60s) :
+   - Création client & prestation Notion
+   - Génération devis Google Sheet
+   - Création événement Google Calendar
+   - **📧 Email automatique envoyé à DéMé**
+4. DéMé reçoit l'email avec tous les liens
+
+---
 
 ## ✅ Prérequis (Déjà fait)
 
-- [x] `render.yaml` créé
+- [x] `render.yaml` créé (sans worker)
 - [x] `.dockerignore` créé
-- [x] `.env` complété avec toutes les variables Notion
-- [x] `.gitignore` configure pour ne pas commit les secrets
+- [x] `.env` complété avec variables Notion + Email
+- [x] `.gitignore` configuré pour ne pas commit les secrets
+- [x] **Plus besoin d'Upstash Redis** ✅
 
 ---
 
-## 📋 ÉTAPE 1 : Créer un compte Redis gratuit (Upstash)
-
-Render Free ne fournit pas Redis, mais Upstash a un plan gratuit parfait pour DéMé.
-
-1. Va sur https://upstash.com
-2. Crée un compte gratuit
-3. Clique sur "Create Database"
-   - Name: `deme-redis`
-   - Type: **Regional**
-   - Region: **EU-West-1** (Ireland - proche de Frankfurt)
-   - Primary: Activé
-4. Copie l'URL de connexion :
-   - Format: `rediss://default:xxxxx@xxxxx.upstash.io:6379`
-
----
-
-## 📋 ÉTAPE 2 : Push le code sur GitHub
+## 📋 ÉTAPE 1 : Push le code sur GitHub
 
 ```bash
 # Dans le dossier SaaS_NR
 
-# Initialiser Git si pas déjà fait
-git init
+# Vérifier le statut
+git status
 
 # Ajouter tous les fichiers (sauf .env grâce au .gitignore)
 git add .
 
 # Commit
-git commit -m "Setup DéMé Traiteur deployment for Render"
+git commit -m "DéMé v2.0: Mode direct avec email notifications (Render Free)"
 
-# Créer un repo sur GitHub (via interface web)
-# Puis linker le repo local
-
-git remote add origin https://github.com/TON_USERNAME/saas-deme-traiteur.git
-git branch -M main
-git push -u origin main
+# Push
+git push
 ```
 
 **⚠️ IMPORTANT** : Vérifie que le `.env` n'a PAS été push :
@@ -55,7 +52,7 @@ git status
 
 ---
 
-## 📋 ÉTAPE 3 : Créer un compte Render
+## 📋 ÉTAPE 2 : Créer un compte Render
 
 1. Va sur https://render.com
 2. Clique sur "Get Started"
@@ -64,25 +61,21 @@ git status
 
 ---
 
-## 📋 ÉTAPE 4 : Déployer sur Render
+## 📋 ÉTAPE 3 : Déployer sur Render
 
 ### A. Créer le service depuis le Blueprint
 
 1. Sur le dashboard Render, clique **"New +" → "Blueprint"**
-2. Connecte ton repo GitHub `saas-deme-traiteur`
+2. Connecte ton repo GitHub `Talaria`
 3. Render détecte automatiquement le fichier `render.yaml` ✅
 4. Clique sur **"Apply"**
 
 Render va créer automatiquement :
 - ✅ Service Web : `deme-api`
-- ✅ Service Worker : `deme-worker`
 - ✅ Database PostgreSQL : `deme-db`
+- ❌ **Pas de worker** (plus nécessaire !)
 
 ### B. Configurer les variables d'environnement
-
-Pour chaque service (API et Worker), tu dois ajouter les variables avec `sync: false`.
-
-#### 1. Service `deme-api`
 
 Va dans : **Dashboard → deme-api → Environment**
 
@@ -116,28 +109,30 @@ GOOGLE_DRIVE_CREDENTIALS={"type": "service_account", "project_id": "deme-traiteu
 GOOGLE_DRIVE_TEMPLATE_FILE_ID=1bTaD-Usyfkr1v862I-5iiwJ6nvzG3p7RJbKbB26yuAE
 GOOGLE_DRIVE_SHARED_FOLDER_ID=1ROU0zlIYM2gla_BnQjZ6xVC8Gd0DeQfx
 
-# Redis Upstash (URL d'Upstash créée à l'étape 1)
-CELERY_BROKER_URL=rediss://default:xxxxx@xxxxx.upstash.io:6379
-CELERY_RESULT_BACKEND=rediss://default:xxxxx@xxxxx.upstash.io:6379
+# Email SMTP (Gmail - créer un mot de passe d'application)
+SMTP_USER=your_email@gmail.com  # Ton email Gmail
+SMTP_PASSWORD=your_app_password  # Mot de passe d'application Gmail
 ```
 
-#### 2. Service `deme-worker`
+### C. Configurer Gmail SMTP (pour les notifications)
 
-Va dans : **Dashboard → deme-worker → Environment**
-
-**Ajoute EXACTEMENT les mêmes variables** que pour `deme-api`.
+1. Va sur https://myaccount.google.com/apppasswords
+2. Crée un mot de passe d'application :
+   - App : "Mail"
+   - Device : "DéMé Traiteur"
+3. Copie le mot de passe généré (16 caractères)
+4. Ajoute-le dans Render comme `SMTP_PASSWORD`
+5. Ajoute ton email Gmail comme `SMTP_USER`
 
 ---
 
-## 📋 ÉTAPE 5 : Vérifier le déploiement
+## 📋 ÉTAPE 4 : Vérifier le déploiement
 
 ### A. Vérifier les logs
 
-1. **API** : Dashboard → deme-api → Logs
-   - Tu dois voir : `Application startup complete.`
-
-2. **Worker** : Dashboard → deme-worker → Logs
-   - Tu dois voir : `celery@... ready.`
+**API** : Dashboard → deme-api → Logs
+- Tu dois voir : `Application startup complete.`
+- Tu dois voir : `DéMé Traiteur router: Direct execution mode enabled (Render Free)`
 
 ### B. Tester l'API
 
@@ -145,7 +140,15 @@ Va dans : **Dashboard → deme-worker → Environment**
 # Récupère l'URL de ton API (ex: https://deme-api.onrender.com)
 
 # Test de santé
-curl https://deme-api.onrender.com/
+curl https://deme-api.onrender.com/api/packs/deme-traiteur/health
+
+# Réponse attendue :
+{
+  "status": "healthy",
+  "pack": "deme_traiteur",
+  "version": "2.0.0",
+  "mode": "direct"
+}
 
 # Test du webhook (attends 30-60s si cold start)
 curl -X POST https://deme-api.onrender.com/api/packs/deme-traiteur/webhook \
@@ -166,27 +169,29 @@ curl -X POST https://deme-api.onrender.com/api/packs/deme-traiteur/webhook \
 ```json
 {
   "success": true,
-  "task_id": "xxx-xxx-xxx",
-  "message": "Demande de prestation enregistrée avec succès."
+  "message": "Demande de prestation enregistrée avec succès. Nous vous recontacterons très prochainement."
 }
 ```
 
-### C. Vérifier dans Notion / Calendar / Sheets
+### C. Vérifier le workflow complet
 
+Après 30-60 secondes, vérifie :
 - ✅ Client créé dans Notion
 - ✅ Prestation créée
 - ✅ Lignes de devis
 - ✅ Événement Google Calendar
 - ✅ Devis Google Sheet
+- ✅ **Email reçu par DéMé** (demo.nouvellerive@gmail.com)
 
 ---
 
-## 📋 ÉTAPE 6 : Livrer à DéMé
+## 📋 ÉTAPE 5 : Livrer à DéMé
 
 ### A. Donner l'accès au workspace Notion
 
-1. Transfert de propriété du compte `gestion.deme@proton.io`
-   - OU partager toutes les bases avec son compte Notion personnel
+1. Transférer le compte `gestion.deme@proton.io` à DéMé
+   - Lui donner email + mot de passe
+   - Il aura accès à toutes les 7 bases Notion
 
 ### B. Fournir l'URL du webhook
 
@@ -198,7 +203,12 @@ Content-Type : application/json
 
 ### C. Intégration sur son site web
 
-Code à fournir à DéMé (voir fichier INTEGRATION_SITE.html créé séparément)
+Fournir le fichier `INTEGRATION_SITE.html` à DéMé.
+
+Il doit remplacer l'URL du webhook :
+```javascript
+const WEBHOOK_URL = 'https://deme-api.onrender.com/api/packs/deme-traiteur/webhook';
+```
 
 ---
 
@@ -214,20 +224,20 @@ Render Free met en veille après 15min. Premier appel = 30-60s de réveil.
 1. Va sur https://cron-job.org
 2. Crée un compte
 3. Ajoute un job :
-   - URL : `https://deme-api.onrender.com/`
+   - URL : `https://deme-api.onrender.com/api/packs/deme-traiteur/health`
    - Interval : Toutes les 10 minutes
-   - ✅ L'API reste toujours réveillée
 
 **Option 2 : UptimeRobot (gratuit)**
 1. Va sur https://uptimerobot.com
 2. Crée un monitor HTTP(s)
-3. URL : `https://deme-api.onrender.com/`
+3. URL : `https://deme-api.onrender.com/api/packs/deme-traiteur/health`
 4. Interval : 5 minutes
 
 ### Logs et Monitoring
 
 - **Logs** : Dashboard Render → Logs en temps réel
 - **Erreurs** : Render envoie des emails si l'app crash
+- **Email notifications** : Vérifier que les emails arrivent bien
 
 ### Mise à jour du code
 
@@ -244,9 +254,25 @@ git push
 
 ## 💰 COÛTS
 
-- **Render** : 0€ (Free tier)
-- **Upstash Redis** : 0€ (Free tier - 10k commandes/jour)
+- **Render** : 0€ (Free tier - API uniquement, pas de worker)
+- **Gmail SMTP** : 0€ (gratuit)
 - **Total** : **0€/mois** 🎉
+
+---
+
+## 🔄 PASSAGE EN MODE PRODUCTION (Si besoin de scaling)
+
+Si DéMé a du succès et besoin de plus de capacité :
+
+1. **Ajouter un worker Celery** (7$/mois) :
+   - Ajouter Redis (Upstash ou Render Redis)
+   - Activer le worker dans render.yaml
+   - Ajouter CELERY_BROKER_URL dans les env vars
+   - Le router détectera automatiquement et passera en mode Celery
+
+2. **Upgrade plan Render** :
+   - Starter : 7$/mois (plus de cold start)
+   - Standard : 25$/mois (plus de ressources)
 
 ---
 
@@ -259,23 +285,39 @@ git push
 → Vérifie que les variables d'env sont bien configurées
 → Vérifie que l'intégration Notion a accès aux bases
 
-### Erreur : Redis connection refused
-→ Vérifie l'URL Redis Upstash dans les variables d'env
-→ Format : `rediss://` (avec double 's')
+### Erreur : Email not sent
+→ Vérifie les variables SMTP_USER et SMTP_PASSWORD
+→ Vérifie que le mot de passe d'application Gmail est valide
+→ Consulte les logs Render pour voir l'erreur exacte
 
-### Worker ne démarre pas
-→ Check les logs : Dashboard → deme-worker → Logs
-→ Vérifie que toutes les variables d'env sont identiques à l'API
+### Mode Direct vs Celery
+
+Le système détecte automatiquement le mode :
+- **Mode Direct** : Si CELERY_BROKER_URL n'est pas défini (Render Free)
+- **Mode Celery** : Si CELERY_BROKER_URL est défini (Production avec worker)
+
+Pour vérifier le mode actif :
+```bash
+curl https://deme-api.onrender.com/api/packs/deme-traiteur/health
+```
 
 ---
 
 ## 🎯 PROCHAINES ÉTAPES
 
 1. [ ] Tester avec une vraie prestation
-2. [ ] Documenter pour DéMé
+2. [ ] Vérifier que l'email arrive bien à DéMé
 3. [ ] Setup cron job pour éviter le cold start
-4. [ ] Monitorer les premières semaines
+4. [ ] Documenter pour DéMé
+5. [ ] Monitorer les premières semaines
 
 ---
 
-**Félicitations ! DéMé Traiteur est en production ! 🚀**
+**Félicitations ! DéMé Traiteur v2.0 est en production gratuitement ! 🚀**
+
+**Changements vs v1.0 :**
+- ❌ Plus besoin de Celery worker
+- ❌ Plus besoin de Redis/Upstash
+- ✅ 100% gratuit sur Render Free
+- ✅ Email notifications automatiques
+- ✅ Mode hybride (Celery si besoin plus tard)

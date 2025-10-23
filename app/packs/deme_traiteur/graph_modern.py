@@ -19,6 +19,7 @@ import operator
 from .integrations.notion_client import NotionClient
 from .integrations.google_calendar_client import GoogleCalendarClient
 from .integrations.google_sheets_client import GoogleSheetsClient
+from .integrations.email_client import EmailClient
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class DemeTraiteurState(TypedDict):
     devis_sheet_id: str
     devis_sheet_link: str
     devis_lines_count: int
+    email_sent: bool
 
     # Error tracking
     errors: Annotated[List[str], operator.add]
@@ -374,6 +376,65 @@ async def fill_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
         raise
 
 
+async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState:
+    """
+    Send email notification to DéMé with all prestation details
+    """
+    logger.info("Step 9: Sending email notification to DéMé")
+    state["current_step"] = "send_email_notification"
+
+    email_client = EmailClient()
+
+    try:
+        # Prepare client data
+        client_data = {
+            "nom_complet": state["nom_complet"],
+            "email": state["email"],
+            "telephone": state.get("telephone", ""),
+            "adresse": state.get("adresse", ""),
+            "ville": state.get("ville", ""),
+            "type_client": state.get("type_client", "Particulier")
+        }
+
+        # Prepare prestation data
+        prestation_data = {
+            "date": state["date"],
+            "pax": state["pax"],
+            "moment": state["moment"],
+            "options": state["options"]
+        }
+
+        # Prepare links
+        links = {
+            "notion_url": state["prestation_url"],
+            "sheet_url": state["devis_sheet_link"]
+        }
+
+        # Send email
+        result = await email_client.send_prestation_notification(
+            client_data=client_data,
+            prestation_data=prestation_data,
+            links=links
+        )
+
+        state["email_sent"] = result["success"]
+
+        if result["success"]:
+            logger.info(f"Email notification sent successfully to {result.get('recipient')}")
+        else:
+            logger.warning(f"Email notification failed: {result.get('message')}")
+
+        return state
+
+    except Exception as e:
+        error_msg = f"Error sending email notification: {str(e)}"
+        logger.error(error_msg)
+        # Don't fail the workflow if email fails - just log the error
+        state["errors"].append(error_msg)
+        state["email_sent"] = False
+        return state
+
+
 # Build the graph
 def build_graph() -> StateGraph:
     """
@@ -390,6 +451,7 @@ def build_graph() -> StateGraph:
     workflow.add_node("copy_sheet_template", copy_sheet_template)
     workflow.add_node("rename_sheet", rename_sheet)
     workflow.add_node("fill_sheet", fill_sheet)
+    workflow.add_node("send_email_notification", send_email_notification)
 
     # Define the flow
     workflow.set_entry_point("process_data")
@@ -400,7 +462,8 @@ def build_graph() -> StateGraph:
     workflow.add_edge("copy_sheet_template", "rename_sheet")
     workflow.add_edge("rename_sheet", "fill_sheet")
     workflow.add_edge("fill_sheet", "create_calendar_event")
-    workflow.add_edge("create_calendar_event", END)
+    workflow.add_edge("create_calendar_event", "send_email_notification")
+    workflow.add_edge("send_email_notification", END)
 
     return workflow.compile()
 
