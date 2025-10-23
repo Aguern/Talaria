@@ -112,6 +112,13 @@ GOOGLE_DRIVE_SHARED_FOLDER_ID=1ROU0zlIYM2gla_BnQjZ6xVC8Gd0DeQfx
 # Email SMTP (Gmail - créer un mot de passe d'application)
 SMTP_USER=your_email@gmail.com  # Ton email Gmail
 SMTP_PASSWORD=your_app_password  # Mot de passe d'application Gmail
+
+# Google OAuth2 Token (pour Gmail API et copie Drive)
+# Copier tout le contenu de token.json sur une ligne
+GOOGLE_TOKEN_JSON={"token": "ya29.a0...", "refresh_token": "1//0g...", ...}
+
+# Admin Secret (pour endpoint de rechargement du pool)
+ADMIN_SECRET=reload_pool_secret_2024
 ```
 
 ### C. Configurer Gmail SMTP (pour les notifications)
@@ -214,24 +221,70 @@ const WEBHOOK_URL = 'https://deme-api.onrender.com/api/packs/deme-traiteur/webho
 
 ## 🔧 MAINTENANCE
 
+### Pool de Templates Google Sheets (IMPORTANT ⚠️)
+
+Le système utilise un pool de templates pré-créés pour générer rapidement les devis Google Sheets.
+
+**Pourquoi ?** Google Drive API limite les copies de fichiers. Un pool évite les erreurs de quota.
+
+**Endpoints de monitoring :**
+- Status : `GET https://deme-api.onrender.com/api/packs/deme-traiteur/admin/pool-status`
+- Rechargement : `POST https://deme-api.onrender.com/api/packs/deme-traiteur/admin/reload-pool?secret=ADMIN_SECRET&count=10`
+
+**Configuration du cron automatique (OBLIGATOIRE) :**
+
+Le pool doit être rechargé automatiquement toutes les 6 heures.
+
+**Option A : GitHub Actions (Recommandé si code sur GitHub)**
+
+Créer `.github/workflows/reload-pool.yml` :
+```yaml
+name: Reload Google Sheets Template Pool
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Toutes les 6 heures
+  workflow_dispatch:  # Permet de lancer manuellement
+
+jobs:
+  reload-pool:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reload Template Pool
+        run: |
+          curl -X POST "https://deme-api.onrender.com/api/packs/deme-traiteur/admin/reload-pool?secret=${{ secrets.ADMIN_SECRET }}&count=10"
+```
+
+Ajouter le secret `ADMIN_SECRET` dans Settings → Secrets → Actions de votre repo GitHub.
+
+**Option B : Cron-job.org (Alternative gratuite)**
+1. Va sur https://cron-job.org
+2. Crée un compte
+3. Ajoute un job :
+   - URL : `https://deme-api.onrender.com/api/packs/deme-traiteur/admin/reload-pool?secret=reload_pool_secret_2024&count=10`
+   - Méthode : POST
+   - Interval : Toutes les 6 heures
+
+---
+
 ### Cold Start (15min d'inactivité)
 
 Render Free met en veille après 15min. Premier appel = 30-60s de réveil.
 
 **Solution** : Ajouter un cron job gratuit pour ping l'API toutes les 10 minutes.
 
-**Option 1 : Cron-job.org (gratuit)**
+**Option 1 : UptimeRobot (gratuit, recommandé)**
+1. Va sur https://uptimerobot.com
+2. Crée un monitor HTTP(s)
+3. URL : `https://deme-api.onrender.com/api/packs/deme-traiteur/health`
+4. Interval : 5 minutes
+
+**Option 2 : Cron-job.org (gratuit)**
 1. Va sur https://cron-job.org
 2. Crée un compte
 3. Ajoute un job :
    - URL : `https://deme-api.onrender.com/api/packs/deme-traiteur/health`
    - Interval : Toutes les 10 minutes
-
-**Option 2 : UptimeRobot (gratuit)**
-1. Va sur https://uptimerobot.com
-2. Crée un monitor HTTP(s)
-3. URL : `https://deme-api.onrender.com/api/packs/deme-traiteur/health`
-4. Interval : 5 minutes
 
 ### Logs et Monitoring
 

@@ -65,6 +65,10 @@ services:
       - key: GOOGLE_DRIVE_SHARED_FOLDER_ID
         sync: false
 
+      # Google OAuth2 Token (for Gmail API and Drive copy operations)
+      - key: GOOGLE_TOKEN_JSON
+        sync: false
+
       # Email SMTP Configuration (for DéMé notifications)
       - key: SMTP_HOST
         value: smtp.gmail.com
@@ -76,6 +80,10 @@ services:
         sync: false
       - key: DEME_NOTIFICATION_EMAIL
         value: demo.nouvellerive@gmail.com
+
+      # Admin Secret (for protected endpoints like pool reload)
+      - key: ADMIN_SECRET
+        sync: false
 
     # Build configuration
     dockerfilePath: ./Dockerfile

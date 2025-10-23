@@ -59,6 +59,10 @@ ENV/
 env.bak
 venv.bak
 
+# Google OAuth Credentials
+token.json
+credentials.json
+
 # IDE specific files
 .idea/
 .vscode/

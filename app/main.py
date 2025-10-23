@@ -53,11 +53,22 @@ async def logging_middleware(request, call_next):
 @app.on_event("startup")
 async def on_startup():
     log.info("application starting", app_name="SaaS NR")
+
+    # Create token.json from environment variable if provided (for Render deployment)
+    import os
+    if os.getenv("GOOGLE_TOKEN_JSON"):
+        try:
+            with open("token.json", "w") as f:
+                f.write(os.getenv("GOOGLE_TOKEN_JSON"))
+            log.info("token.json created from environment variable")
+        except Exception as e:
+            log.warning("failed to create token.json from env var", error=str(e))
+
     async with engine.begin() as conn:
         # On active l'extension pgvector si elle n'existe pas
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         log.info("pgvector extension enabled")
-        
+
         # Créer les tables si elles n'existent pas
         await conn.run_sync(Base.metadata.create_all)
     log.info("database tables ready")

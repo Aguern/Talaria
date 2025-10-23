@@ -195,6 +195,90 @@ async def webhook_form_submission(
         )
 
 
+@router.get("/admin/pool-status")
+async def pool_status():
+    """
+    Get the current status of the Google Sheets template pool
+
+    Returns pool statistics (available templates, in-use templates, etc.)
+    """
+    try:
+        from .integrations.google_sheets_client import GoogleSheetsClient
+        import json
+        from pathlib import Path
+
+        # Read pool file directly
+        pool_file = Path(__file__).parent / "template_pool.json"
+        with open(pool_file, 'r') as f:
+            pool = json.load(f)
+
+        return {
+            "status": "ok",
+            "pool": {
+                "available": len(pool.get("available", [])),
+                "in_use": len(pool.get("in_use", [])),
+                "total": len(pool.get("available", [])) + len(pool.get("in_use", [])),
+                "needs_reload": len(pool.get("available", [])) < 5
+            },
+            "available_ids": pool.get("available", [])[:3]  # Show first 3 IDs
+        }
+
+    except Exception as e:
+        log.error("Error getting pool status", error=str(e))
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@router.post("/admin/reload-pool")
+async def reload_pool(secret: str, count: int = 10):
+    """
+    Reload the template pool by creating new copies
+
+    This endpoint should be called periodically (e.g., via cron) to keep the pool full.
+
+    Args:
+        secret: Admin secret key (from env: ADMIN_SECRET or hardcoded for now)
+        count: Number of templates to create (default: 10, max: 20)
+
+    Returns:
+        Pool reload status and statistics
+    """
+    # Simple secret validation
+    expected_secret = os.getenv("ADMIN_SECRET", "reload_pool_secret_2024")
+
+    if secret != expected_secret:
+        log.warning("Unauthorized pool reload attempt")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid secret"
+        )
+
+    try:
+        from .integrations.google_sheets_client import GoogleSheetsClient
+
+        # Limit count to prevent abuse
+        count = min(count, 20)
+
+        log.info(f"Starting pool reload: {count} templates")
+
+        sheets = GoogleSheetsClient()
+        result = await sheets.reload_pool(count)
+
+        return {
+            "status": "success",
+            "result": result
+        }
+
+    except Exception as e:
+        log.error("Error reloading pool", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reload pool: {str(e)}"
+        )
+
+
 @router.get("/health")
 async def health_check():
     """

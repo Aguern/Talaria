@@ -1,30 +1,54 @@
 # Fichier: app/packs/deme_traiteur/integrations/email_client.py
 
-import smtplib
 import os
+import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any
 import structlog
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
 log = structlog.get_logger()
 
 
 class EmailClient:
     """
-    Client SMTP pour envoyer des notifications email à DéMé.
-    Utilise les variables d'environnement pour la configuration.
+    Client Gmail API pour envoyer des notifications email à DéMé.
+    Utilise token.json pour l'authentification OAuth2.
     """
 
     def __init__(self):
-        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.notification_email = os.getenv("DEME_NOTIFICATION_EMAIL", "demo.nouvellerive@gmail.com")
+        self.token_path = "token.json"
+        self.gmail_service = None
 
-        if not self.smtp_user or not self.smtp_password:
-            log.warning("SMTP credentials not configured. Emails will not be sent.")
+        # Initialize Gmail API
+        try:
+            if not os.path.exists(self.token_path):
+                log.error(f"token.json not found at {self.token_path}")
+                return
+
+            creds = Credentials.from_authorized_user_file(self.token_path)
+
+            # Refresh token if expired
+            if creds and creds.expired and creds.refresh_token:
+                from google.auth.transport.requests import Request
+                creds.refresh(Request())
+
+                # Save refreshed token to file for persistence
+                try:
+                    with open(self.token_path, 'w') as token_file:
+                        token_file.write(creds.to_json())
+                    log.info("Gmail token refreshed and saved successfully")
+                except Exception as save_error:
+                    log.warning(f"Token refreshed but failed to save: {save_error}")
+
+            self.gmail_service = build('gmail', 'v1', credentials=creds)
+            log.info("Gmail API initialized successfully")
+        except Exception as e:
+            log.error("Failed to initialize Gmail API", error=str(e))
 
     async def send_prestation_notification(
         self,
@@ -43,18 +67,18 @@ class EmailClient:
         Returns:
             Dict avec le statut de l'envoi
         """
-        if not self.smtp_user or not self.smtp_password:
-            log.warning("Cannot send email: SMTP not configured")
+        if not self.gmail_service:
+            log.warning("Cannot send email: Gmail API not initialized")
             return {
                 "success": False,
-                "message": "SMTP not configured"
+                "message": "Gmail API not initialized"
             }
 
         try:
             # Créer le message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"📋 Nouvelle demande de prestation - {client_data.get('nom_complet', 'Client')}"
-            msg['From'] = self.smtp_user
+            msg['From'] = 'assistant.nouvellerive@gmail.com'
             msg['To'] = self.notification_email
 
             # Créer le contenu HTML
@@ -69,20 +93,23 @@ class EmailClient:
             msg.attach(part1)
             msg.attach(part2)
 
-            # Envoyer l'email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
+            # Envoyer via Gmail API
+            raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+            send_result = self.gmail_service.users().messages().send(
+                userId='me',
+                body={'raw': raw_message}
+            ).execute()
 
-            log.info("Email notification sent successfully",
+            log.info("Email notification sent successfully via Gmail API",
                     recipient=self.notification_email,
-                    client=client_data.get('nom_complet'))
+                    client=client_data.get('nom_complet'),
+                    message_id=send_result.get('id'))
 
             return {
                 "success": True,
                 "message": "Email sent successfully",
-                "recipient": self.notification_email
+                "recipient": self.notification_email,
+                "message_id": send_result.get('id')
             }
 
         except Exception as e:

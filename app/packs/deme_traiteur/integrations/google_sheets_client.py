@@ -116,6 +116,217 @@ class GoogleSheetsClient:
 
             return template_id
 
+    async def _get_user_access_token(self) -> str:
+        """
+        Get OAuth2 access token using user credentials (token.json)
+        This is used for operations that require user permissions (like copying files)
+
+        Returns:
+            Access token string
+        """
+        try:
+            from google.oauth2.credentials import Credentials
+            from google.auth.transport.requests import Request
+            from pathlib import Path
+
+            token_path = Path(__file__).parent.parent.parent.parent / "token.json"
+
+            if not token_path.exists():
+                logger.error(f"token.json not found at {token_path}")
+                raise Exception("User credentials not found. Run setup_gmail.py first.")
+
+            creds = Credentials.from_authorized_user_file(str(token_path))
+
+            # Refresh token if expired
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                # Save refreshed token
+                with open(str(token_path), 'w') as token_file:
+                    token_file.write(creds.to_json())
+                logger.info("User token refreshed and saved")
+
+            return creds.token
+
+        except Exception as e:
+            logger.error(f"Error getting user access token: {str(e)}")
+            raise
+
+    async def copy_template_file(self, new_name: str) -> str:
+        """
+        Copy the master template file using user account credentials
+
+        This uses the user's Google account (via token.json) instead of the service account
+        because the Drive API copy operation requires user permissions.
+
+        Args:
+            new_name: Name for the new file
+
+        Returns:
+            ID of the newly created file
+
+        Raises:
+            Exception: If copy fails or quota is exceeded
+        """
+        token = await self._get_user_access_token()
+
+        url = f"https://www.googleapis.com/drive/v3/files/{self.template_file_id}/copy"
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "name": new_name,
+            "parents": [self.shared_folder_id]
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    params={"fields": "id,name,webViewLink"}
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                logger.info(f"Template copied successfully with user account: {new_name} (ID: {data['id']})")
+                return data["id"]
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                # Check if it's a quota error
+                try:
+                    error_data = e.response.json()
+                    error_str = str(error_data)
+                    if "quotaExceeded" in error_str or "userRateLimitExceeded" in error_str:
+                        logger.warning("Google Drive quota exceeded")
+                        raise Exception("QuotaExceeded")
+                except Exception:
+                    pass
+
+            # Not a quota error - log and raise
+            logger.error(f"Error copying template (HTTP {e.response.status_code}): {str(e)}")
+            if e.response.status_code == 403:
+                logger.error("Permission denied. Check user account permissions.")
+            raise
+        except Exception as e:
+            logger.error(f"Error copying template: {str(e)}")
+            raise
+
+    async def reload_pool(self, count: int = 10) -> Dict[str, Any]:
+        """
+        Reload the template pool by creating new copies
+
+        This method copies the master template multiple times and adds them to the pool.
+        It should be called periodically (via cron or admin endpoint) to keep the pool full.
+
+        Args:
+            count: Number of templates to create (default: 10)
+
+        Returns:
+            Dictionary with status and statistics
+        """
+        async with self._pool_lock:
+            logger.info(f"Starting pool reload: creating {count} new templates")
+
+            # Read current pool
+            pool = await self._read_pool()
+            initial_available = len(pool["available"])
+
+            created_ids = []
+            failed = 0
+
+            for i in range(count):
+                try:
+                    # Generate unique name
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    template_name = f"Template_Devis_{timestamp}_{i+1}"
+
+                    # Copy template
+                    template_id = await self.copy_template_file(template_name)
+                    created_ids.append(template_id)
+
+                    # Add to pool
+                    pool["available"].append(template_id)
+
+                    logger.info(f"Created template {i+1}/{count}: {template_id}")
+
+                    # Small delay to avoid rate limiting
+                    await asyncio.sleep(0.5)
+
+                except Exception as e:
+                    logger.error(f"Failed to create template {i+1}/{count}: {str(e)}")
+                    failed += 1
+
+            # Save updated pool
+            if created_ids:
+                await self._write_pool(pool)
+
+            result = {
+                "success": len(created_ids) > 0,
+                "created": len(created_ids),
+                "failed": failed,
+                "pool_before": initial_available,
+                "pool_after": len(pool["available"]),
+                "new_template_ids": created_ids
+            }
+
+            logger.info(f"Pool reload completed: {result}")
+            return result
+
+    async def get_template_with_fallback(self, devis_name: str) -> str:
+        """
+        Get a template from pool, or copy master template if pool is empty
+
+        This method tries to use the pre-created pool first (fast), but falls back
+        to copying the master template if the pool is exhausted. The copy operation
+        includes retry logic with exponential backoff to handle Google Drive quotas.
+
+        Args:
+            devis_name: Name for the devis (used if copying template)
+
+        Returns:
+            ID of the template (from pool or newly copied)
+
+        Raises:
+            Exception: If copy fails after all retries
+        """
+        try:
+            # Try pool first (fast path)
+            return await self.get_template_from_pool()
+        except Exception as pool_error:
+            logger.warning(f"Pool exhausted, falling back to template copy: {str(pool_error)}")
+
+            # Pool empty → copy master template with retry
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                try:
+                    logger.info(f"Copying template (attempt {attempt + 1}/{max_attempts})")
+                    template_id = await self.copy_template_file(devis_name)
+                    logger.info(f"Template copied successfully: {template_id}")
+                    return template_id
+
+                except Exception as copy_error:
+                    if "QuotaExceeded" in str(copy_error) and attempt < max_attempts - 1:
+                        # Exponential backoff: 60s, 120s, 180s
+                        delay = 60 * (attempt + 1)
+                        logger.warning(
+                            f"Quota exceeded, retrying in {delay}s "
+                            f"(attempt {attempt + 1}/{max_attempts})"
+                        )
+                        await asyncio.sleep(delay)
+                    else:
+                        # Last attempt or other error
+                        logger.error(f"Failed to copy template after {attempt + 1} attempts")
+                        raise Exception(
+                            f"Impossible de créer le devis: {str(copy_error)}. "
+                            "Le quota Google Drive a été dépassé. Veuillez réessayer dans quelques minutes."
+                        )
+
     async def rename_file(self, file_id: str, new_name: str) -> Dict[str, str]:
         """
         Rename a Google Drive file
