@@ -1,0 +1,79 @@
+# Render-optimized requirements (without heavy ML packages)
+# For Render Free deployment (512MB RAM limit)
+
+# Framework & Server
+fastapi
+uvicorn[standard]
+
+# Database (ORM & Driver)
+sqlalchemy
+asyncpg  # Async PostgreSQL driver for SQLAlchemy
+
+# Pydantic & Config
+pydantic
+pydantic-settings
+
+# Authentication
+python-jose[cryptography]
+argon2-cffi==23.1.0
+
+# File Handling
+python-multipart
+
+# AI & Orchestration (minimal, without heavy ML)
+langchain
+langchain-openai
+langchain-text-splitters
+langgraph
+langgraph-checkpoint
+langgraph-checkpoint-postgres
+psycopg-binary
+langgraph-checkpoint-sqlite
+openai
+tiktoken
+langchain-community
+# NOTE: Heavy ML packages removed for Render Free
+# - torch (500MB+)
+# - sentence-transformers
+# - transformers
+# - langchain-huggingface
+
+# Document Parsing & Data Handling
+pymupdf
+pandas
+openpyxl
+
+# Logging
+structlog
+
+# Security & Encryption
+cryptography
+
+# Background Tasks
+celery
+redis
+
+# Vector Database Support
+pgvector
+
+# HTTP Client
+httpx
+
+# Google APIs
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+google-api-python-client
+
+# HTML/XML Parsing
+beautifulsoup4
+lxml
+
+# Testing (optional, can be removed if needed)
+pytest
+pytest-asyncio
+
+# PDF
+pypdf
+PyPDFForm==1.4.31
+reportlab

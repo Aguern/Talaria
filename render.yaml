@@ -85,8 +85,8 @@ services:
       - key: ADMIN_SECRET
         sync: false
 
-    # Build configuration
-    dockerfilePath: ./Dockerfile
+    # Build configuration (using lightweight Dockerfile for Render Free 512MB limit)
+    dockerfilePath: ./Dockerfile.render
     dockerContext: .
 
   # Note: Worker service removed for Render Free deployment
