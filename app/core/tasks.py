@@ -24,7 +24,8 @@ log = structlog.get_logger()
 BOFIP_INDEX_URL = "https://www.data.gouv.fr/api/1/datasets/r/93c981ed-a818-4e89-bb19-49756591bc2d"
 
 # Conditional imports for Celery mode only
-CELERY_MODE = os.getenv("CELERY_BROKER_URL") is not None
+# Check if CELERY_BROKER_URL exists AND is not empty
+CELERY_MODE = bool(os.getenv("CELERY_BROKER_URL", "").strip())
 
 if CELERY_MODE:
     from redis import Redis

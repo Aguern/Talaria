@@ -1,5 +1,7 @@
 # Fichier: app/core/config.py
 
+from typing import Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -11,9 +13,9 @@ class Settings(BaseSettings):
     # Clé pour le chiffrement des configurations
     FERNET_KEY: str
 
-    # Variables pour Celery
-    CELERY_BROKER_URL: str
-    CELERY_RESULT_BACKEND: str
+    # Variables pour Celery (optionnelles pour permettre le mode Direct sans Celery)
+    CELERY_BROKER_URL: str = Field(default="")
+    CELERY_RESULT_BACKEND: str = Field(default="")
 
     # LLM Configuration
     OPENAI_MODEL: str = "gpt-5-mini-2025-08-07"

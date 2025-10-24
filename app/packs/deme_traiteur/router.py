@@ -18,8 +18,8 @@ from .graph_modern import build_graph
 
 log = structlog.get_logger()
 
-# Detect execution mode: Celery (if CELERY_BROKER_URL exists) or Direct (FastAPI BackgroundTasks)
-CELERY_MODE = os.getenv("CELERY_BROKER_URL") is not None
+# Detect execution mode: Celery (if CELERY_BROKER_URL exists AND not empty) or Direct (FastAPI BackgroundTasks)
+CELERY_MODE = bool(os.getenv("CELERY_BROKER_URL", "").strip())
 
 if CELERY_MODE:
     log.info("DéMé Traiteur router: Celery mode enabled (dev/full production)")

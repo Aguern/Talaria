@@ -15,7 +15,8 @@ from core.database import engine, Base, get_db
 from core.logging_config import setup_logging
 
 # Conditional import for Celery tasks (only in Celery mode)
-CELERY_MODE = os.getenv("CELERY_BROKER_URL") is not None
+# Check if CELERY_BROKER_URL exists AND is not empty
+CELERY_MODE = bool(os.getenv("CELERY_BROKER_URL", "").strip())
 if CELERY_MODE:
     from core import tasks as core_tasks
 
