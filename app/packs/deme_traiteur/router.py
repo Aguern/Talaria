@@ -52,6 +52,7 @@ class WebhookRequest(BaseModel):
     pax: int
     moment: Optional[str] = "Midi"
     options: List[str] = []
+    message: Optional[str] = ""
 
 
 class WebhookResponse(BaseModel):

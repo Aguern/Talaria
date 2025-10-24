@@ -226,6 +226,15 @@ class EmailClient:
                 {options_html}
             </div>
 
+            {f'''
+            <div class="section">
+                <div class="section-title">💬 MESSAGE DU PROSPECT</div>
+                <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; border-radius: 4px;">
+                    <p style="margin: 0; white-space: pre-wrap;">{prestation_data.get('message', 'Aucun message')}</p>
+                </div>
+            </div>
+            ''' if prestation_data.get('message') else ''}
+
             <div class="section">
                 <div class="section-title">🔗 LIENS RAPIDES</div>
                 <div style="text-align: center; margin-top: 15px;">
@@ -291,6 +300,12 @@ Nombre de personnes : {prestation_data.get('pax', 'N/A')}
 Options de menu :
 {options_text}
 
+{f'''
+💬 MESSAGE DU PROSPECT
+━━━━━━━━━━━━━━━━━━━━
+{prestation_data.get('message', 'Aucun message')}
+
+''' if prestation_data.get('message') else ''}
 🔗 LIENS RAPIDES
 ━━━━━━━━━━━━━━━
 • Fiche Notion : {links.get('notion_url', 'N/A')}

@@ -39,6 +39,7 @@ class DemeTraiteurState(TypedDict):
     moment: str
     nom_prestation: str
     options: List[str]
+    message: str
 
     # Processing state
     client_id: str
@@ -279,22 +280,30 @@ async def create_calendar_event(state: DemeTraiteurState) -> DemeTraiteurState:
 
 async def copy_sheet_template(state: DemeTraiteurState) -> DemeTraiteurState:
     """
-    Get a pre-created template from the pool (instead of copying to avoid quota issues)
+    Get a Google Sheet template (from pool or by copying master template)
+
+    This uses a hybrid approach:
+    1. Try to get a pre-created template from pool (fast)
+    2. If pool is empty, copy the master template with retry logic
     """
-    logger.info("Step 5: Getting Google Sheet template from pool")
+    logger.info("Step 5: Getting Google Sheet template")
     state["current_step"] = "copy_sheet_template"
 
     sheets = GoogleSheetsClient()
 
     try:
-        sheet_id = await sheets.get_template_from_pool()
+        # Generate devis name for potential copy
+        devis_name = f"Devis - {state['nom_complet']} - {state['date']}"
+
+        # Get template (pool or copy with fallback)
+        sheet_id = await sheets.get_template_with_fallback(devis_name)
         state["devis_sheet_id"] = sheet_id
 
-        logger.info(f"Sheet template retrieved from pool: {sheet_id}")
+        logger.info(f"Sheet template obtained: {sheet_id}")
         return state
 
     except Exception as e:
-        error_msg = f"Error getting sheet template from pool: {str(e)}"
+        error_msg = f"Error getting sheet template: {str(e)}"
         logger.error(error_msg)
         state["errors"].append(error_msg)
         raise

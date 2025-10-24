@@ -189,6 +189,9 @@ class NotionClient:
             },
             "Client": {
                 "relation": [{"id": client_id}]
+            },
+            "Message": {
+                "rich_text": [{"text": {"content": prestation_data.get("message", "")}}]
             }
         }
 

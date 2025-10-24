@@ -163,7 +163,12 @@ class GoogleCalendarClient:
         # Build event summary
         summary = f"DéMé - {prestation_data.get('nom_prestation', 'Prestation')}"
 
-        # Build enriched description with Client, Prestation, and Links sections
+        # Build enriched description with Client, Prestation, Message, and Links sections
+        message_section = f"""
+💬 MESSAGE DU PROSPECT
+{prestation_data.get('message', 'Aucun message')}
+""" if prestation_data.get('message') else ""
+
         description = f"""📋 INFORMATIONS CLIENT
 Nom: {client_data.get('nom_complet', '')}
 Email: {client_data.get('email', '')}
@@ -175,7 +180,7 @@ Ville: {client_data.get('ville', '')}
 Date: {prestation_data.get('date', '')}
 PAX: {prestation_data.get('pax', 0)} personnes
 Moment: {prestation_data.get('moment', 'Midi')}
-
+{message_section}
 🔗 LIENS
 Fiche Notion: {prestation_url}
 Devis Google Sheet: {devis_sheet_link}
