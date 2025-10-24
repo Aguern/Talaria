@@ -9,6 +9,7 @@ Handles:
 
 import os
 import json
+from json.decoder import JSONDecodeError
 import httpx
 from typing import Dict, Any, Optional, List
 import logging
@@ -66,17 +67,25 @@ class GoogleSheetsClient:
     async def _read_pool(self) -> Dict[str, List[str]]:
         """Read the template pool from JSON file, initialize if missing or corrupted"""
         try:
+            logger.info(f"Reading pool file: {self.pool_file}")
             with open(self.pool_file, 'r') as f:
                 pool = json.load(f)
                 # Validate structure
                 if not isinstance(pool, dict) or 'available' not in pool or 'in_use' not in pool:
+                    logger.warning(f"Pool structure invalid: {pool}")
                     raise ValueError("Invalid pool structure")
+                logger.info(f"Pool loaded successfully: {len(pool.get('available', []))} available, {len(pool.get('in_use', []))} in use")
                 return pool
-        except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"Pool file missing or corrupted ({type(e).__name__}), initializing empty pool")
+        except (FileNotFoundError, JSONDecodeError, ValueError) as e:
+            logger.warning(f"Pool file missing or corrupted ({type(e).__name__}: {str(e)}), initializing empty pool")
             # Initialize with empty pool
             empty_pool = {"available": [], "in_use": []}
-            await self._write_pool(empty_pool)
+            try:
+                await self._write_pool(empty_pool)
+                logger.info("Empty pool file created successfully")
+            except Exception as write_error:
+                logger.error(f"Failed to write empty pool: {write_error}")
+                raise
             return empty_pool
 
     async def _write_pool(self, pool: Dict[str, List[str]]):

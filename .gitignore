@@ -79,3 +79,6 @@ credentials.json
 # Test files
 test_files/
 tests/
+
+# Template pool (generated at runtime, not versioned)
+app/packs/deme_traiteur/template_pool.json

@@ -88,6 +88,37 @@ async def on_startup():
         await conn.run_sync(Base.metadata.create_all)
     log.info("database tables ready")
 
+    # Initialize template pool for DéMé Traiteur (critical for Render Free)
+    try:
+        from pathlib import Path
+        import json
+
+        pool_file = Path(__file__).parent / "packs" / "deme_traiteur" / "template_pool.json"
+
+        # Check if pool file exists and is valid
+        pool_valid = False
+        if pool_file.exists():
+            try:
+                with open(pool_file, 'r') as f:
+                    pool = json.load(f)
+                    if isinstance(pool, dict) and 'available' in pool and 'in_use' in pool:
+                        pool_valid = True
+                        log.info("template pool file valid",
+                                available=len(pool.get('available', [])),
+                                in_use=len(pool.get('in_use', [])))
+            except Exception as e:
+                log.warning("template pool file corrupted", error=str(e))
+
+        # Create empty pool if missing or invalid
+        if not pool_valid:
+            log.warning("initializing empty template pool file")
+            empty_pool = {"available": [], "in_use": []}
+            with open(pool_file, 'w') as f:
+                json.dump(empty_pool, f, indent=2)
+            log.info("template pool initialized successfully")
+    except Exception as e:
+        log.error("failed to initialize template pool", error=str(e))
+
 # Inclure les routes des packs et APIs
 app.include_router(bofip_router.router)
 app.include_router(form_3916_router.router)
