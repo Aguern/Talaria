@@ -24,7 +24,23 @@ class GoogleSheetsClient:
 
     def __init__(self):
         credentials_str = os.getenv("GOOGLE_DRIVE_CREDENTIALS")
-        self.credentials = json.loads(credentials_str) if credentials_str else {}
+        if credentials_str:
+            try:
+                # Try direct parsing first
+                self.credentials = json.loads(credentials_str)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse GOOGLE_DRIVE_CREDENTIALS directly: {e}")
+                # Try fixing common issues: real newlines in private key
+                try:
+                    # Replace literal newlines with \n escape sequences
+                    fixed_str = credentials_str.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
+                    self.credentials = json.loads(fixed_str)
+                    logger.info("Successfully parsed GOOGLE_DRIVE_CREDENTIALS after fixing newlines")
+                except Exception as e2:
+                    logger.error(f"Failed to parse GOOGLE_DRIVE_CREDENTIALS even after fixing: {e2}")
+                    raise Exception(f"Invalid GOOGLE_DRIVE_CREDENTIALS format: {e2}")
+        else:
+            self.credentials = {}
         self.template_file_id = os.getenv("GOOGLE_DRIVE_TEMPLATE_FILE_ID")
         self.shared_folder_id = os.getenv("GOOGLE_DRIVE_SHARED_FOLDER_ID")
         self.access_token: Optional[str] = None
