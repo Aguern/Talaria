@@ -21,6 +21,10 @@ class GoogleCalendarClient:
     def __init__(self):
         credentials_str = os.getenv("GOOGLE_CALENDAR_CREDENTIALS")
         if credentials_str:
+            # DEBUG: Log first 200 chars to see what we're receiving
+            logger.info(f"DEBUG CALENDAR CREDS - Length: {len(credentials_str)}, First 200 chars: {credentials_str[:200]}")
+            logger.info(f"DEBUG CALENDAR CREDS - Char at position 70: repr={repr(credentials_str[65:75])}")
+
             try:
                 # Try direct parsing first
                 self.credentials = json.loads(credentials_str)
@@ -30,12 +34,14 @@ class GoogleCalendarClient:
                 try:
                     # Replace literal newlines with \n escape sequences
                     fixed_str = credentials_str.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
+                    logger.info(f"DEBUG AFTER FIX - First 200 chars: {fixed_str[:200]}")
                     self.credentials = json.loads(fixed_str)
                     logger.info("Successfully parsed GOOGLE_CALENDAR_CREDENTIALS after fixing newlines")
                 except Exception as e2:
                     logger.error(f"Failed to parse GOOGLE_CALENDAR_CREDENTIALS even after fixing: {e2}")
                     raise Exception(f"Invalid GOOGLE_CALENDAR_CREDENTIALS format: {e2}")
         else:
+            logger.error("GOOGLE_CALENDAR_CREDENTIALS environment variable is empty or not set!")
             self.credentials = {}
 
         self.calendar_id = os.getenv("GOOGLE_CALENDAR_ID")
