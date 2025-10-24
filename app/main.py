@@ -1,6 +1,7 @@
 # Fichier: app/main.py
 
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -24,7 +25,14 @@ log = structlog.get_logger()
 
 app = FastAPI(title="SaaS NR - API Modulaire")
 
-# CORS supprimé - géré par le proxy Next.js
+# CORS - Allow all origins for webhooks (demefontainebleau.com, test forms, etc.)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Middleware de logging CORRIGÉ pour propager le contexte
 @app.middleware("http")
