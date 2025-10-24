@@ -416,7 +416,8 @@ async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState
         # Prepare links
         links = {
             "notion_url": state["prestation_url"],
-            "sheet_url": state["devis_sheet_link"]
+            "sheet_url": state["devis_sheet_link"],
+            "calendar_url": state.get("calendar_event_link", "")
         }
 
         # Send email

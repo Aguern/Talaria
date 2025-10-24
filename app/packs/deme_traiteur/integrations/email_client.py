@@ -240,9 +240,7 @@ class EmailClient:
                 <div style="text-align: center; margin-top: 15px;">
                     <a href="{links.get('notion_url', '#')}" class="link-button">📋 Fiche Notion</a>
                     <a href="{links.get('sheet_url', '#')}" class="link-button">📊 Devis Google Sheet</a>
-                </div>
-                <div style="text-align: center; margin-top: 5px; font-size: 14px; color: #666;">
-                    ✅ L'événement a été ajouté à votre Google Calendar
+                    <a href="{links.get('calendar_url', '#')}" class="link-button">📅 Événement Calendar</a>
                 </div>
             </div>
 
@@ -310,7 +308,7 @@ Options de menu :
 ━━━━━━━━━━━━━━━
 • Fiche Notion : {links.get('notion_url', 'N/A')}
 • Devis Google Sheet : {links.get('sheet_url', 'N/A')}
-• L'événement a été ajouté à votre Google Calendar
+• Événement Calendar : {links.get('calendar_url', 'N/A')}
 
 ✅ ACTIONS AUTOMATIQUES EFFECTUÉES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

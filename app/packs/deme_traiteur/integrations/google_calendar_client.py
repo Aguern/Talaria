@@ -6,6 +6,7 @@ Handles event creation in Google Calendar
 
 import os
 import json
+from json.decoder import JSONDecodeError
 import httpx
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -19,7 +20,24 @@ class GoogleCalendarClient:
 
     def __init__(self):
         credentials_str = os.getenv("GOOGLE_CALENDAR_CREDENTIALS")
-        self.credentials = json.loads(credentials_str) if credentials_str else {}
+        if credentials_str:
+            try:
+                # Try direct parsing first
+                self.credentials = json.loads(credentials_str)
+            except JSONDecodeError as e:
+                logger.warning(f"Failed to parse GOOGLE_CALENDAR_CREDENTIALS directly: {e}")
+                # Try fixing common issues: real newlines in private key
+                try:
+                    # Replace literal newlines with \n escape sequences
+                    fixed_str = credentials_str.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
+                    self.credentials = json.loads(fixed_str)
+                    logger.info("Successfully parsed GOOGLE_CALENDAR_CREDENTIALS after fixing newlines")
+                except Exception as e2:
+                    logger.error(f"Failed to parse GOOGLE_CALENDAR_CREDENTIALS even after fixing: {e2}")
+                    raise Exception(f"Invalid GOOGLE_CALENDAR_CREDENTIALS format: {e2}")
+        else:
+            self.credentials = {}
+
         self.calendar_id = os.getenv("GOOGLE_CALENDAR_ID")
         self.access_token: Optional[str] = None
 
