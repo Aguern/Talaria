@@ -10,11 +10,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import asyncio
 import json
 import importlib
+import os
 from typing import Dict
 from sqlalchemy import text, func
-from redis import Redis
 
-from worker import celery_app
 from core.database import SessionLocal
 from core import crud
 from core.engine import get_embed_client
@@ -24,8 +23,33 @@ log = structlog.get_logger()
 
 BOFIP_INDEX_URL = "https://www.data.gouv.fr/api/1/datasets/r/93c981ed-a818-4e89-bb19-49756591bc2d"
 
-# Connexion Redis pour les tâches
-redis_client = Redis.from_url("redis://redis:6379/0", decode_responses=True)
+# Conditional imports for Celery mode only
+CELERY_MODE = os.getenv("CELERY_BROKER_URL") is not None
+
+if CELERY_MODE:
+    from redis import Redis
+    from worker import celery_app
+
+    # Connexion Redis pour les tâches (uniquement en mode Celery)
+    redis_client = Redis.from_url(os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"), decode_responses=True)
+    log.info("Celery mode enabled in tasks.py")
+else:
+    log.info("Direct mode - Celery imports skipped in tasks.py")
+
+    # Mock celery_app for Direct mode (tasks won't be called but need to be defined)
+    class MockCeleryApp:
+        def task(self, *args, **kwargs):
+            """Dummy decorator that does nothing in Direct mode"""
+            def decorator(func):
+                return func
+            # Support both @celery_app.task and @celery_app.task(...)
+            if args and callable(args[0]):
+                return args[0]
+            return decorator
+
+    celery_app = MockCeleryApp()
+    redis_client = None
+
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
 
 async def process_document_pair(tar: tarfile.TarFile, files: Dict, tenant_id: int):

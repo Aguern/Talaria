@@ -1,5 +1,6 @@
 # Fichier: app/main.py
 
+import os
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -12,7 +13,12 @@ import structlog
 from core import models, schemas, auth, crud
 from core.database import engine, Base, get_db
 from core.logging_config import setup_logging
-from core import tasks as core_tasks
+
+# Conditional import for Celery tasks (only in Celery mode)
+CELERY_MODE = os.getenv("CELERY_BROKER_URL") is not None
+if CELERY_MODE:
+    from core import tasks as core_tasks
+
 from packs.bofip import router as bofip_router
 from packs.form_3916 import router as form_3916_router
 from packs.deme_traiteur import router as deme_traiteur_router
@@ -144,7 +150,14 @@ async def trigger_bofip_ingestion(current_user: schemas.CurrentUser = Depends(au
     """
     Lance la tâche de fond pour télécharger et traiter l'index du BOFIP.
     (Note: devrait être réservé aux administrateurs dans une vraie application)
+    (Note: Disponible uniquement en mode Celery - pas disponible sur Render Free)
     """
+    if not CELERY_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cette fonctionnalité nécessite Celery et n'est pas disponible en mode Direct (Render Free)"
+        )
+
     task = core_tasks.ingest_bofip_task.delay()
     log.info("Tâche d'ingestion BOFIP lancée par l'utilisateur.", user_email=current_user.user.email)
     return {"message": "La tâche d'ingestion du BOFIP a été lancée en arrière-plan.", "task_id": task.id}
@@ -154,7 +167,14 @@ async def run_test_task(current_user: schemas.CurrentUser = Depends(auth.get_cur
     """
     Lance une tâche de fond de test qui attend 2 secondes.
     La réponse est immédiate.
+    (Note: Disponible uniquement en mode Celery - pas disponible sur Render Free)
     """
+    if not CELERY_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cette fonctionnalité nécessite Celery et n'est pas disponible en mode Direct (Render Free)"
+        )
+
     task = core_tasks.debug_task.delay(1, 2)
     return {"message": "Tâche de test lancée", "task_id": task.id}
 
