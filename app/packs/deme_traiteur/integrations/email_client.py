@@ -243,15 +243,6 @@ class EmailClient:
                     <a href="{links.get('calendar_url', '#')}" class="link-button">📅 Événement Calendar</a>
                 </div>
             </div>
-
-            <div class="checklist">
-                <div style="font-weight: bold; margin-bottom: 10px;">✅ Actions automatiques effectuées :</div>
-                <div>✅ Création de la fiche client dans Notion</div>
-                <div>✅ Création de la prestation liée</div>
-                <div>✅ Génération du devis avec {len(options_list)} ligne(s)</div>
-                <div>✅ Ajout de l'événement à votre agenda Google</div>
-                <div>✅ Calcul des besoins en ingrédients, matériel et RH</div>
-            </div>
         </div>
 
         <div class="footer">
@@ -309,14 +300,6 @@ Options de menu :
 • Fiche Notion : {links.get('notion_url', 'N/A')}
 • Devis Google Sheet : {links.get('sheet_url', 'N/A')}
 • Événement Calendar : {links.get('calendar_url', 'N/A')}
-
-✅ ACTIONS AUTOMATIQUES EFFECTUÉES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ Création de la fiche client dans Notion
-✓ Création de la prestation liée
-✓ Génération du devis avec {len(options_list)} ligne(s)
-✓ Ajout de l'événement à votre agenda Google
-✓ Calcul des besoins en ingrédients, matériel et RH
 
 Bonne journée !
 

@@ -163,7 +163,8 @@ async def create_prestation(state: DemeTraiteurState) -> DemeTraiteurState:
             "date": state["date"],
             "pax": state["pax"],
             "moment": state["moment"],
-            "statut": "A confirmer"
+            "statut": "A confirmer",
+            "message": state.get("message", "")
         }
 
         result = await notion.create_prestation(prestation_data, state["client_id"])
@@ -246,7 +247,8 @@ async def create_calendar_event(state: DemeTraiteurState) -> DemeTraiteurState:
             "date": state["date"],
             "pax": state["pax"],
             "moment": state["moment"],
-            "ville": state.get("ville", "")
+            "ville": state.get("ville", ""),
+            "message": state.get("message", "")
         }
 
         # Prepare client data
@@ -410,7 +412,8 @@ async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState
             "date": state["date"],
             "pax": state["pax"],
             "moment": state["moment"],
-            "options": state["options"]
+            "options": state["options"],
+            "message": state.get("message", "")
         }
 
         # Prepare links
