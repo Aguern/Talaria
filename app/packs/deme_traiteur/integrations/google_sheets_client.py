@@ -64,13 +64,20 @@ class GoogleSheetsClient:
             raise
 
     async def _read_pool(self) -> Dict[str, List[str]]:
-        """Read the template pool from JSON file"""
+        """Read the template pool from JSON file, initialize if missing or corrupted"""
         try:
             with open(self.pool_file, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            logger.error(f"Pool file not found: {self.pool_file}")
-            raise Exception("Template pool configuration not found")
+                pool = json.load(f)
+                # Validate structure
+                if not isinstance(pool, dict) or 'available' not in pool or 'in_use' not in pool:
+                    raise ValueError("Invalid pool structure")
+                return pool
+        except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Pool file missing or corrupted ({type(e).__name__}), initializing empty pool")
+            # Initialize with empty pool
+            empty_pool = {"available": [], "in_use": []}
+            await self._write_pool(empty_pool)
+            return empty_pool
 
     async def _write_pool(self, pool: Dict[str, List[str]]):
         """Write the template pool to JSON file"""
@@ -84,23 +91,38 @@ class GoogleSheetsClient:
         This avoids the quota issue by using templates that already exist
         and belong to the user account.
 
+        If the pool is empty, automatically reloads it with new templates.
+
         Returns:
             ID of a template from the pool
 
         Raises:
-            Exception: If no templates are available in the pool
+            Exception: If pool reload fails
         """
         async with self._pool_lock:
             # Read current pool state
             pool = await self._read_pool()
 
+            # Auto-reload if pool is empty (e.g., on Render Free after restart)
             if not pool["available"]:
-                logger.error("No templates available in pool!")
-                raise Exception(
-                    "Pool de templates épuisé. "
-                    "Veuillez créer de nouvelles copies du template dans le dossier partagé "
-                    "et les ajouter au fichier template_pool.json"
-                )
+                logger.warning("Pool is empty, auto-reloading with 5 new templates...")
+                try:
+                    # Release lock temporarily for reload (it needs the lock internally)
+                    pass  # We're already in the lock, reload_pool will wait
+                except Exception as e:
+                    logger.error(f"Failed to auto-reload pool: {str(e)}")
+                    raise Exception(
+                        "Pool de templates épuisé et impossible de recharger automatiquement. "
+                        f"Erreur: {str(e)}"
+                    )
+
+            # Try again after potential reload
+            if not pool["available"]:
+                # Reload manually since we're in the lock
+                await self._reload_pool_internal(pool, count=5)
+
+            if not pool["available"]:
+                raise Exception("Failed to reload pool - no templates available")
 
             # Get first available template
             template_id = pool["available"].pop(0)
@@ -216,6 +238,58 @@ class GoogleSheetsClient:
             logger.error(f"Error copying template: {str(e)}")
             raise
 
+    async def _reload_pool_internal(self, pool: Dict[str, List[str]], count: int = 10) -> Dict[str, Any]:
+        """
+        Internal method to reload pool (assumes lock is already held)
+
+        Args:
+            pool: The current pool dictionary
+            count: Number of templates to create
+
+        Returns:
+            Dictionary with status and statistics
+        """
+        logger.info(f"Starting pool reload: creating {count} new templates")
+        initial_available = len(pool["available"])
+
+        created_ids = []
+        failed = 0
+
+        for i in range(count):
+            try:
+                # Generate unique name
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                template_name = f"Template_Devis_{timestamp}_{i+1}"
+
+                # Copy template
+                template_id = await self.copy_template_file(template_name)
+                created_ids.append(template_id)
+
+                # Add to pool
+                pool["available"].append(template_id)
+
+                logger.info(f"Created template {i+1}/{count}: {template_id}")
+
+                # Small delay to avoid rate limiting
+                await asyncio.sleep(0.5)
+
+            except Exception as e:
+                logger.error(f"Failed to create template {i+1}/{count}: {str(e)}")
+                failed += 1
+
+        # Save updated pool
+        if created_ids:
+            await self._write_pool(pool)
+
+        return {
+            "success": len(created_ids) > 0,
+            "created": len(created_ids),
+            "failed": failed,
+            "initial_available": initial_available,
+            "final_available": len(pool["available"])
+        }
+
     async def reload_pool(self, count: int = 10) -> Dict[str, Any]:
         """
         Reload the template pool by creating new copies
@@ -230,50 +304,8 @@ class GoogleSheetsClient:
             Dictionary with status and statistics
         """
         async with self._pool_lock:
-            logger.info(f"Starting pool reload: creating {count} new templates")
-
-            # Read current pool
             pool = await self._read_pool()
-            initial_available = len(pool["available"])
-
-            created_ids = []
-            failed = 0
-
-            for i in range(count):
-                try:
-                    # Generate unique name
-                    import datetime
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    template_name = f"Template_Devis_{timestamp}_{i+1}"
-
-                    # Copy template
-                    template_id = await self.copy_template_file(template_name)
-                    created_ids.append(template_id)
-
-                    # Add to pool
-                    pool["available"].append(template_id)
-
-                    logger.info(f"Created template {i+1}/{count}: {template_id}")
-
-                    # Small delay to avoid rate limiting
-                    await asyncio.sleep(0.5)
-
-                except Exception as e:
-                    logger.error(f"Failed to create template {i+1}/{count}: {str(e)}")
-                    failed += 1
-
-            # Save updated pool
-            if created_ids:
-                await self._write_pool(pool)
-
-            result = {
-                "success": len(created_ids) > 0,
-                "created": len(created_ids),
-                "failed": failed,
-                "pool_before": initial_available,
-                "pool_after": len(pool["available"]),
-                "new_template_ids": created_ids
-            }
+            result = await self._reload_pool_internal(pool, count)
 
             logger.info(f"Pool reload completed: {result}")
             return result
