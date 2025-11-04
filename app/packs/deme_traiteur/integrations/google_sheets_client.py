@@ -165,7 +165,7 @@ class GoogleSheetsClient:
 
     async def _get_user_access_token(self) -> str:
         """
-        Get OAuth2 access token using user credentials (token.json)
+        Get OAuth2 access token using user credentials from GOOGLE_TOKEN_JSON env var
         This is used for operations that require user permissions (like copying files)
 
         Returns:
@@ -176,21 +176,37 @@ class GoogleSheetsClient:
             from google.auth.transport.requests import Request
             from pathlib import Path
 
-            token_path = Path(__file__).parent.parent.parent.parent / "token.json"
+            token_json = os.getenv("GOOGLE_TOKEN_JSON")
 
-            if not token_path.exists():
-                logger.error(f"token.json not found at {token_path}")
-                raise Exception("User credentials not found. Run setup_gmail.py first.")
+            if not token_json:
+                # Fallback to token.json file if env var not set (for local dev)
+                token_path = Path(__file__).parent.parent.parent.parent / "token.json"
+                if not token_path.exists():
+                    logger.error("GOOGLE_TOKEN_JSON env var not set and token.json not found")
+                    raise Exception("User credentials not found. Set GOOGLE_TOKEN_JSON env var or run setup_gmail.py.")
 
-            creds = Credentials.from_authorized_user_file(str(token_path))
+                with open(str(token_path), 'r') as f:
+                    token_data = json.load(f)
+            else:
+                token_data = json.loads(token_json)
 
-            # Refresh token if expired
-            if creds and creds.expired and creds.refresh_token:
+            # Create credentials from token data
+            creds = Credentials(
+                token=token_data.get("token"),
+                refresh_token=token_data.get("refresh_token"),
+                token_uri=token_data.get("token_uri"),
+                client_id=token_data.get("client_id"),
+                client_secret=token_data.get("client_secret"),
+                scopes=token_data.get("scopes")
+            )
+
+            # Always refresh token to ensure validity
+            # This avoids expiration issues on Render where filesystem is not persistent
+            if creds.refresh_token:
                 creds.refresh(Request())
-                # Save refreshed token
-                with open(str(token_path), 'w') as token_file:
-                    token_file.write(creds.to_json())
-                logger.info("User token refreshed and saved")
+                logger.info("User token refreshed successfully for Drive operations")
+            else:
+                logger.warning("No refresh_token available, using existing token (may expire)")
 
             return creds.token
 

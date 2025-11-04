@@ -21,29 +21,43 @@ class EmailClient:
 
     def __init__(self):
         self.notification_email = os.getenv("DEME_NOTIFICATION_EMAIL", "demo.nouvellerive@gmail.com")
-        self.token_path = "token.json"
         self.gmail_service = None
 
-        # Initialize Gmail API
+        # Initialize Gmail API with auto-refresh from environment variable
         try:
-            if not os.path.exists(self.token_path):
-                log.error(f"token.json not found at {self.token_path}")
-                return
+            import json
+            token_json = os.getenv("GOOGLE_TOKEN_JSON")
 
-            creds = Credentials.from_authorized_user_file(self.token_path)
+            if not token_json:
+                # Fallback to token.json file if env var not set (for local dev)
+                token_path = "token.json"
+                if not os.path.exists(token_path):
+                    log.error("GOOGLE_TOKEN_JSON env var not set and token.json not found")
+                    return
 
-            # Refresh token if expired
-            if creds and creds.expired and creds.refresh_token:
+                with open(token_path, 'r') as f:
+                    token_data = json.load(f)
+            else:
+                token_data = json.loads(token_json)
+
+            # Create credentials from token data
+            creds = Credentials(
+                token=token_data.get("token"),
+                refresh_token=token_data.get("refresh_token"),
+                token_uri=token_data.get("token_uri"),
+                client_id=token_data.get("client_id"),
+                client_secret=token_data.get("client_secret"),
+                scopes=token_data.get("scopes")
+            )
+
+            # Always refresh token at startup to ensure validity
+            # This avoids expiration issues on Render where filesystem is not persistent
+            if creds.refresh_token:
                 from google.auth.transport.requests import Request
                 creds.refresh(Request())
-
-                # Save refreshed token to file for persistence
-                try:
-                    with open(self.token_path, 'w') as token_file:
-                        token_file.write(creds.to_json())
-                    log.info("Gmail token refreshed and saved successfully")
-                except Exception as save_error:
-                    log.warning(f"Token refreshed but failed to save: {save_error}")
+                log.info("Gmail token refreshed successfully at startup")
+            else:
+                log.warning("No refresh_token available, using existing token (may expire)")
 
             self.gmail_service = build('gmail', 'v1', credentials=creds)
             log.info("Gmail API initialized successfully")
