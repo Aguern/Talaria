@@ -92,6 +92,7 @@ async def run_workflow_direct(data: dict):
             "moment": data.get("moment", "Midi"),
             "nom_prestation": f"{data['nom_complet']} - {data['pax']}",  # Will be set in process_data
             "options": data.get("options", []),
+            "message": data.get("message", ""),
             "errors": [],
             "current_step": "init"
         }
