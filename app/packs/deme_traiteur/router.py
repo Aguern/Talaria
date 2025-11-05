@@ -9,6 +9,7 @@ This router supports two execution modes:
 """
 
 import os
+from enum import Enum
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
@@ -39,6 +40,19 @@ router = APIRouter(
 )
 
 
+# Menu options validation
+class MenuOption(str, Enum):
+    """Valid menu options for the catalogue"""
+    ANTIPASTI_FROIDS = "Antipasti froids (burrata, salade, carapaccio, etc.)"
+    ANTIPASTI_CHAUDS = "Antipasti chauds (fritures, arancini, crispy mozza, etc.)"
+    PIZZA = "Pizza (sur-mesure)"
+    PATES = "Pâtes (Truffes, Carbonara, Ragù, etc.)"
+    RISOTTO = "Risotto (champignon, fruits de mer, 4 fromages, etc.)"
+    DESSERTS = "Desserts (Tiramisù, Panna cotta, crème pistache)"
+    PLANCHES = "Planches (charcuterie, fromage)"
+    BOISSONS = "Boissons (soft, vin, cocktail)"
+
+
 # Request/Response schemas
 class WebhookRequest(BaseModel):
     """Schema for webhook form submission"""
@@ -51,7 +65,7 @@ class WebhookRequest(BaseModel):
     date: str  # Format: YYYY-MM-DD
     pax: int
     moment: Optional[str] = "Midi"
-    options: List[str] = []
+    options: List[MenuOption] = []
     message: Optional[str] = ""
 
 
