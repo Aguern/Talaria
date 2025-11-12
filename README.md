@@ -312,7 +312,7 @@ graph TB
     RRF --> RERANK[CrossEncoder Re-ranking<br/>BAAI/bge-reranker-base]
     RERANK --> CTX[Top-K Contextes]
 
-    CTX --> LLM[GPT-4o-mini Generation]
+    CTX --> LLM[GPT-5-mini Generation]
     Q --> LLM
     LLM --> A[Réponse avec citations]
 
