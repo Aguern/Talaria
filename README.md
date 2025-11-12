@@ -22,9 +22,7 @@
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Utilisation](#utilisation)
-- [Tests](#tests)
 - [Déploiement](#déploiement)
-- [Performance](#performance)
 - [Structure du projet](#structure-du-projet)
 - [Méthodologie](#méthodologie)
 - [Licence](#licence)
@@ -38,7 +36,6 @@ Talaria est une **plateforme d'automatisation flexible** conçue pour s'adapter 
 ### Cas d'usage en production
 
 **DéMé Traiteur** - Automatisation end-to-end pour les prestations traiteur avec client réel en production :
-- **320+ prestations traitées** depuis déploiement
 - **<2min temps de traitement moyen** par demande
 - **6 intégrations API** orchestrées (Notion, Google Calendar, Sheets, Drive, Gmail)
 - **100% de disponibilité** sur Render.com (free tier)
@@ -206,7 +203,7 @@ graph LR
 
 ### 1. DéMé Traiteur (Production)
 
-**Domaine** : Gestion traiteur et événementiel
+**Domaine** : Gestion database traiteur à domicile
 **Statut** : Déploiement production avec client réel
 
 Automatisation end-to-end pour les demandes de prestation traiteur avec orchestration multi-API.
@@ -238,15 +235,6 @@ sequenceDiagram
 - **Google Drive API** : Gestion templates et fichiers devis
 - **Google Sheets API** : Génération de devis avec système de pooling de templates
 - **Gmail API** : Notifications email avec refresh automatique OAuth2 tokens
-
-#### Métriques de production
-| Métrique | Valeur |
-|----------|--------|
-| Prestations traitées | 320+ |
-| Temps traitement moyen | <2min |
-| Taux de succès | 99.7% |
-| Uptime | 99.7% |
-| Coût mensuel | $0 (Render free tier) |
 
 ---
 
@@ -624,54 +612,6 @@ curl -X POST http://localhost:8000/api/packs/bofip/query \
     "query": "Quelles sont les conditions de déductibilité des frais professionnels?"
   }'
 ```
-
----
-
-## Tests
-
-### Tests Backend
-
-```bash
-# Lancer tous les tests
-pytest
-
-# Lancer un module de test spécifique
-pytest app/tests/packs/test_form_3916_graph.py
-
-# Avec couverture
-pytest --cov=app --cov-report=html
-
-# Tests par catégorie
-pytest app/tests/core/          # Tests système central
-pytest app/tests/packs/         # Tests packs
-pytest app/tests/tools/         # Tests outils IA
-```
-
-### Tests Frontend
-
-```bash
-cd frontend
-
-# Lancer tests unitaires (Vitest)
-npm run test:unit
-
-# Lancer tests E2E (Playwright)
-npm run test:e2e
-
-# Lancer tous les tests
-npm run test:all
-```
-
-### Couverture de tests
-
-| Module | Couverture |
-|--------|------------|
-| `app/core/` | 85% |
-| `app/packs/` | 78% |
-| `app/tools/` | 82% |
-| `app/api/` | 90% |
-| **Global** | **83%** |
-
 ---
 
 ## Déploiement
@@ -716,54 +656,6 @@ docker run -d \
   -e OPENAI_API_KEY=sk-... \
   talaria-api
 ```
-
----
-
-## Performance
-
-### Métriques système
-
-| Métrique | Valeur (Render Free Tier) |
-|----------|---------------------------|
-| Cold start | ~15s |
-| Warm latency (API) | <100ms |
-| Latency LLM call | ~2-5s (streaming) |
-| Throughput | ~50 req/min |
-| Memory usage | ~450MB |
-| CPU usage (idle) | ~5% |
-
-### Performance des packs
-
-#### DéMé Traiteur
-
-| Opération | Temps moyen |
-|-----------|-------------|
-| Webhook → Notion | 800ms |
-| Création Google Calendar | 600ms |
-| Génération Google Sheets | 3-4s (template pooling) |
-| Envoi email Gmail | 500ms |
-| **Workflow complet** | **<2min** |
-
-#### Form 3916
-
-| Opération | Temps moyen |
-|-----------|-------------|
-| Classification document | 1.2s |
-| Parsing PDF (5 pages) | 800ms |
-| Extraction GPT-5-mini | 2-3s |
-| Génération PDF final | 1.5s |
-| **Workflow complet (3 docs)** | **~15s** |
-
-#### BOFIP RAG
-
-| Opération | Temps moyen |
-|-----------|-------------|
-| Embedding query | 50ms |
-| Recherche vectorielle | 120ms |
-| Recherche full-text | 80ms |
-| Re-ranking (top 20) | 150ms |
-| Génération réponse | 2-3s |
-| **Query complète** | **~450ms** (sans génération) |
 
 ---
 
@@ -890,7 +782,6 @@ Le système détecte la présence de `CELERY_BROKER_URL` et bascule entre :
 
 ### Production-Ready
 - **Cas d'usage réel en production** avec client payant (DéMé Traiteur)
-- **320+ transactions traitées** avec 100% de disponibilité
 - **Monitoring et logging structuré** avec structlog et contextvars
 
 ### Extensibilité
