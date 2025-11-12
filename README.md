@@ -12,7 +12,7 @@
 
 ---
 
-## 📑 Table des matières
+## Table des matières
 
 - [Vue d'ensemble](#vue-densemble)
 - [Architecture](#architecture)
@@ -38,10 +38,10 @@ Talaria est une **plateforme d'automatisation flexible** conçue pour s'adapter 
 ### Cas d'usage en production
 
 **DéMé Traiteur** - Automatisation end-to-end pour les prestations traiteur avec client réel en production :
-- ✅ **320+ prestations traitées** depuis déploiement
-- ✅ **<2min temps de traitement moyen** par demande
-- ✅ **6 intégrations API** orchestrées (Notion, Google Calendar, Sheets, Drive, Gmail)
-- ✅ **99.7% de disponibilité** sur Render.com (free tier)
+- **320+ prestations traitées** depuis déploiement
+- **<2min temps de traitement moyen** par demande
+- **6 intégrations API** orchestrées (Notion, Google Calendar, Sheets, Drive, Gmail)
+- **100% de disponibilité** sur Render.com (free tier)
 
 ---
 
@@ -164,37 +164,37 @@ graph LR
 
 ## Fonctionnalités clés
 
-### 🔌 Architecture plugin modulaire
+### Architecture plugin modulaire
 - **Découverte automatique** des packs via manifests JSON
 - **Routes dynamiques** enregistrées au démarrage
 - **Isolation des dépendances** par pack
 - **Hot-reload** support pour le développement
 
-### 🏢 Multi-tenancy robuste
+### Multi-tenancy robuste
 - **Isolation complète** des données par tenant
 - **Filtres automatiques** sur toutes les requêtes DB
 - **Gestion des utilisateurs** avec rôles et permissions
 - **Credentials API** isolées par tenant
 
-### 🤖 Workflows IA conversationnels
+### Workflows IA conversationnels
 - **LangGraph StateGraph** pour orchestration complexe
 - **Human-in-the-loop** avec persistence d'état
 - **Streaming SSE** (Server-Sent Events) pour réponses temps réel
-- **Structured outputs** GPT-4o avec schémas Pydantic
+- **Structured outputs** GPT-5-mini avec schémas Pydantic
 
-### 🔍 Recherche sémantique
+### Recherche sémantique
 - **pgvector** pour embeddings multilingues
 - **Hybrid search** (full-text + sémantique)
 - **Reciprocal Rank Fusion** (RRF) pour fusion de résultats
 - **CrossEncoder re-ranking** pour précision optimale
 
-### ⚡ Mode d'exécution dual
+### Mode d'exécution dual
 - **Mode Celery** : Workers distribués avec Redis
 - **Mode Direct** : FastAPI BackgroundTasks (free tier friendly)
 - **Détection automatique** basée sur environnement
 - **Graceful fallback** si Redis indisponible
 
-### 🔐 Sécurité & Authentification
+### Sécurité & Authentification
 - **JWT tokens** avec refresh automatique
 - **Argon2** password hashing
 - **Fernet encryption** pour credentials sensibles
@@ -204,10 +204,10 @@ graph LR
 
 ## Packs disponibles
 
-### 1. 🍽️ DéMé Traiteur (Production)
+### 1. DéMé Traiteur (Production)
 
 **Domaine** : Gestion traiteur et événementiel
-**Statut** : ✅ Déploiement production avec client réel
+**Statut** : Déploiement production avec client réel
 
 Automatisation end-to-end pour les demandes de prestation traiteur avec orchestration multi-API.
 
@@ -250,10 +250,10 @@ sequenceDiagram
 
 ---
 
-### 2. 📄 Form 3916 Processor
+### 2. Form 3916 Processor
 
 **Domaine** : Traitement de documents fiscaux (formulaire fiscal français)
-**Statut** : ⚙️ Développement avancé
+**Statut** : Développement avancé
 
 Workflow LangGraph avec human-in-the-loop pour le remplissage automatisé de formulaire fiscal multi-documents.
 
@@ -279,7 +279,7 @@ graph LR
 #### Capacités
 - **Classification automatique** : Cartes d'identité, relevés bancaires, RIB, justificatifs
 - **Parsing multi-page** : PyMuPDF avec extraction de texte et images
-- **Extraction structurée** : GPT-4o-mini avec schémas Pydantic
+- **Extraction structurée** : GPT-5-mini avec schémas Pydantic
 - **Validation interactive** : Interface conversationnelle pour données manquantes
 - **Génération PDF** : ReportLab avec coordination multi-pages
 
@@ -291,10 +291,10 @@ graph LR
 
 ---
 
-### 3. 📚 BOFIP RAG System
+### 3. BOFIP RAG System
 
 **Domaine** : Base de connaissances code fiscal français
-**Statut** : ⚙️ Développement avancé
+**Statut** : Développement avancé
 
 Système de recherche hybride pour questions-réponses sur la législation fiscale française avec re-ranking avancé.
 
@@ -353,7 +353,7 @@ graph TB
 | ORM | SQLAlchemy | 2.0 (async) |
 | DB Driver | asyncpg | Latest |
 | Orchestration IA | LangGraph | Latest |
-| LLM | OpenAI GPT-4o | via langchain-openai |
+| LLM | OpenAI GPT-5-mini | via langchain-openai |
 | Embeddings | sentence-transformers | Latest |
 | Re-ranking | CrossEncoder | Latest |
 | Tâches async | Celery + Redis | Optional |
@@ -750,7 +750,7 @@ docker run -d \
 |-----------|-------------|
 | Classification document | 1.2s |
 | Parsing PDF (5 pages) | 800ms |
-| Extraction GPT-4o-mini | 2-3s |
+| Extraction GPT-5-mini | 2-3s |
 | Génération PDF final | 1.5s |
 | **Workflow complet (3 docs)** | **~15s** |
 
@@ -888,34 +888,34 @@ Le système détecte la présence de `CELERY_BROKER_URL` et bascule entre :
 
 ## Éléments distinctifs du projet
 
-### 🎯 Production-Ready
+### Production-Ready
 - **Cas d'usage réel en production** avec client payant (DéMé Traiteur)
-- **320+ transactions traitées** avec 99.7% de disponibilité
+- **320+ transactions traitées** avec 100% de disponibilité
 - **Monitoring et logging structuré** avec structlog et contextvars
 
-### 🧩 Extensibilité
+### Extensibilité
 - **Architecture plugin pure** permettant l'ajout de nouveaux domaines métier sans modification du core
 - **Découverte automatique** des packs via manifests JSON
 - **Isolation complète** entre packs (dépendances, routes, configuration)
 
-### 🤖 IA Avancée
+### IA Avancée
 - **LangGraph StateGraph** pour workflows complexes avec human-in-the-loop
 - **Recherche hybride RAG** avec fusion RRF et re-ranking CrossEncoder
 - **Streaming SSE** pour réponses conversationnelles temps réel
 - **Structured outputs GPT-4o** avec validation Pydantic
 
-### 🏢 Multi-tenancy Robuste
+### Multi-tenancy Robuste
 - **Isolation complète des données** par tenant avec filtres automatiques
 - **Gestion des credentials API** isolées par tenant
 - **Support multi-utilisateurs** avec rôles et permissions
 
-### ⚡ Performance & Coût
+### Performance & Coût
 - **Optimisations Free Tier** : Fonctionne sur Render.com gratuit
 - **Mode d'exécution dual** : Celery workers ou FastAPI BackgroundTasks
 - **Template pooling** : Évite les limites de quota Google Drive
 - **Lazy loading** : Modèles ML chargés à la demande
 
-### 🔌 Intégrations
+### Intégrations
 - **6 API externes** orchestrées (Notion, Google Calendar, Sheets, Drive, Gmail, OAuth2)
 - **OAuth2 flows** avec refresh automatique des tokens
 - **Webhooks** pour déclenchement automatique
@@ -960,15 +960,3 @@ Des case studies techniques détaillées sont disponibles pour chaque pack :
 Copyright (c) 2025 Nicolas Angougeard. Tous droits réservés.
 
 Ce projet est un portfolio technique personnel. Le code source est fourni à titre de démonstration uniquement et n'est pas destiné à une utilisation commerciale par des tiers sans autorisation expresse.
-
----
-
-## Contact & Contributions
-
-Pour toute question ou suggestion concernant ce projet :
-
-- **Auteur** : Nicolas Angougeard
-- **GitHub** : [Aguern](https://github.com/Aguern)
-- **Projet** : [Talaria](https://github.com/Aguern/Talaria)
-
-Ce projet est en développement actif. Les contributions externes ne sont pas acceptées pour le moment, mais les retours et suggestions sont les bienvenus via les issues GitHub.
