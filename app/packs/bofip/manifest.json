@@ -1,0 +1,37 @@
+{
+  "id": "bofip",
+  "name": "BOFIP - Recherche Doctrine Fiscale",
+  "description": "Système de recherche et question-réponse sur la base documentaire du BOFIP (Bulletin Officiel des Finances Publiques). Utilise une approche RAG hybride (recherche vectorielle + full-text) avec re-ranking pour fournir des réponses précises avec citations.",
+  "version": "1.0.0",
+  "category": "fiscal",
+  "author": "SaaS NR - Équipe Talaria",
+  "interaction_mode": "conversational",
+  "inputs": [
+    {
+      "name": "question",
+      "description": "Question sur la doctrine fiscale française",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "conversation_id",
+      "description": "ID de la conversation pour maintenir le contexte",
+      "type": "text",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "answer",
+      "description": "Réponse générée avec citations des sources BOFIP",
+      "type": "text"
+    },
+    {
+      "name": "citations",
+      "description": "Liste des extraits de documents BOFIP utilisés comme sources",
+      "type": "json"
+    }
+  ],
+  "tags": ["fiscal", "bofip", "rag", "recherche", "doctrine"],
+  "requirements": ["pgvector", "sentence-transformers", "CrossEncoder", "OpenAI API"]
+}
