@@ -30,12 +30,22 @@ from api import recipes as recipes_router
 setup_logging()
 log = structlog.get_logger()
 
-app = FastAPI(title="SaaS NR - API Modulaire")
+app = FastAPI(
+    title="Talaria API",
+    description="Plateforme iPaaS modulaire pour l'automatisation de workflows personnalisés",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
+)
 
-# CORS - Allow all origins for webhooks (demefontainebleau.com, test forms, etc.)
+# CORS - Configure allowed origins from environment variable for security
+# In production, specify exact origins (e.g., "https://yourdomain.com,https://www.yourdomain.com")
+# In development, defaults to localhost
+cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

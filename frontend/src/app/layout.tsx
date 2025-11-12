@@ -28,15 +28,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <head>
-        {/* Security headers via meta tags - Développement permissif */}
-        <meta
-          httpEquiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' http://localhost:* ws://localhost:*; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';"
-        />
-        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
-        <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
-      </head>
       <body className={inter.className}>
         <QueryProvider>
           <ToastProvider>

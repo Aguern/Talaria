@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-5-mini-2025-08-07"
     OPENAI_TEMPERATURE: float = 0.0
 
+    # Database debugging (set to "true" to log SQL queries)
+    DEBUG_SQL: str = Field(default="false")
+
+    # CORS configuration (comma-separated list of allowed origins)
+    CORS_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:3001")
+
     class Config:
         env_file = ".env"
 

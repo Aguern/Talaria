@@ -87,23 +87,47 @@ const config: NextConfig = {
       },
     ];
   },
-  // Si tu sers le PDF worker depuis /public :
-  // (copie "node_modules/pdfjs-dist/build/pdf.worker.min.js" → "public/pdf.worker.min.js")
-  // Désactivation temporaire du CSP pour développement
-  headers: async () => 
-    process.env.NODE_ENV === 'development' 
-      ? [] // Pas de headers en développement
-      : [
-          {
-            source: "/:path*",
-            headers: [
-              { key: "Content-Security-Policy", value: "default-src 'self'; img-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self';" },
-              { key: "Referrer-Policy", value: "no-referrer" },
-              { key: "X-Content-Type-Options", value: "nosniff" },
-              { key: "X-Frame-Options", value: "SAMEORIGIN" },
-            ],
-          },
+  // Security headers for production
+  // In development, headers are disabled to allow HMR and fast refresh
+  headers: async () => {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+    if (isDevelopment) {
+      return []; // No CSP in development for HMR compatibility
+    }
+
+    // Production CSP - Note: 'unsafe-inline' is required for Next.js hydration
+    // For stricter security, consider implementing nonce-based CSP
+    const cspDirectives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'", // Next.js requires unsafe-inline for hydration
+      "style-src 'self' 'unsafe-inline'",  // Required for styled-components/CSS-in-JS
+      "img-src 'self' blob: data: https:",
+      "font-src 'self' data:",
+      `connect-src 'self' ${apiUrl} ws: wss:`, // Allow API and WebSocket connections
+      "frame-src 'self'",
+      "frame-ancestors 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "upgrade-insecure-requests"
+    ].join("; ");
+
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: cspDirectives },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
+      },
+    ];
+  },
 };
 
 export default config;
