@@ -116,7 +116,7 @@ Domaine : Traitement de documents fiscaux (formulaire fiscal français)
 Workflow LangGraph avec human-in-the-loop pour le remplissage de formulaire fiscal multi-documents :
 - Classification de documents (cartes d'identité, relevés bancaires, RIB, etc.)
 - Parsing de documents multi-pages avec PyMuPDF
-- Extraction de données structurées via GPT-4o avec schémas Pydantic
+- Extraction de données structurées via GPT-5-mini avec schémas Pydantic
 - Consolidation des champs et détection des données manquantes
 - Complétion de formulaire interactive via interface conversationnelle
 - Génération PDF avec ReportLab (sortie multi-pages coordonnée)
@@ -131,7 +131,7 @@ Système de recherche hybride pour questions-réponses sur la législation fisca
 - Recherche sémantique via pgvector et embeddings multilingues
 - Fusion des résultats avec Reciprocal Rank Fusion (RRF)
 - Re-ranking avec CrossEncoder (BAAI/bge-reranker-base)
-- Génération de réponses GPT-4 avec citations des sources
+- Génération de réponses GPT-5-mini avec citations des sources
 
 Technologies : pgvector, sentence-transformers, CrossEncoder, patterns RAG LangChain
 
@@ -364,11 +364,3 @@ Des case studies techniques détaillées sont disponibles pour chaque pack :
 - docs/CASE_STUDY_DEME_TRAITEUR.md - Workflow production avec intégrations multi-API
 - docs/CASE_STUDY_FORM_3916.md - Traitement documents conversationnel avec LangGraph
 - docs/CASE_STUDY_BOFIP_RAG.md - Système RAG hybride avec re-ranking
-
-## Licence
-
-[Spécifier votre licence ici]
-
-## Contact
-
-[Vos informations de contact ou directives de contribution]
