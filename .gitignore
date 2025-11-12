@@ -76,9 +76,10 @@ credentials.json
 *.sqlite
 *.sqlite3
 
-# Test files
+# Test files (temporary test outputs, not the test suite itself)
 test_files/
-tests/
+test_output/
+*.test.log
 
 # Template pool (generated at runtime, not versioned)
 app/packs/deme_traiteur/template_pool.json
