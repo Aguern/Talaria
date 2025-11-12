@@ -364,3 +364,9 @@ Des case studies techniques détaillées sont disponibles pour chaque pack :
 - docs/CASE_STUDY_DEME_TRAITEUR.md - Workflow production avec intégrations multi-API
 - docs/CASE_STUDY_FORM_3916.md - Traitement documents conversationnel avec LangGraph
 - docs/CASE_STUDY_BOFIP_RAG.md - Système RAG hybride avec re-ranking
+
+## Licence
+
+Copyright (c) 2025 [Nicolas Angougeard]. Tous droits réservés.
+
+Ce projet est un portfolio technique personnel. Le code source est fourni à titre de démonstration uniquement et n'est pas destiné à une utilisation commerciale par des tiers sans autorisation expresse.
