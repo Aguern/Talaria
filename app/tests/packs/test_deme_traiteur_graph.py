@@ -316,7 +316,7 @@ async def test_email_notification_content(valid_form_data, mock_notion_responses
 
         # Verify email was sent with correct data
         mock_email.send_prestation_notification.assert_called_once()
-        call_args = mock_email.send_notification.call_args
+        call_args = mock_email.send_prestation_notification.call_args
 
         # Check that important data is passed to email function
         # (exact structure depends on EmailClient implementation)
