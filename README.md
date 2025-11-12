@@ -75,7 +75,7 @@ graph TB
     end
 
     subgraph "AI/ML Layer"
-        LLM[OpenAI GPT-4o]
+        LLM[OpenAI GPT-5-mini]
         GRAPH[LangGraph State Machines]
         EMB[Sentence Transformers]
         RERANK[CrossEncoder Reranker]
