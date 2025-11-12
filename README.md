@@ -1,272 +1,272 @@
 # Talaria
 
-A modular iPaaS (Integration Platform as a Service) for building and deploying custom workflow automation solutions. Talaria provides a plugin-based architecture where specialized "packs" handle domain-specific business logic while the core system manages authentication, multi-tenancy, orchestration, and execution.
+Plateforme iPaaS (Integration Platform as a Service) modulaire pour la construction et le déploiement de solutions d'automatisation de workflows personnalisés. Talaria propose une architecture basée sur des plugins où des "packs" spécialisés gèrent la logique métier spécifique à chaque domaine, tandis que le système central assure l'authentification, le multi-tenancy, l'orchestration et l'exécution.
 
-## Overview
+## Vue d'ensemble
 
-Talaria is designed as a flexible automation platform that can adapt to various business domains through its modular pack system. Each pack is self-contained with its own logic, API routes, and configuration, making the platform easily extensible for new use cases.
+Talaria est conçue comme une plateforme d'automatisation flexible qui peut s'adapter à divers domaines métier grâce à son système modulaire de packs. Chaque pack est autonome avec sa propre logique, ses routes API et sa configuration, ce qui rend la plateforme facilement extensible pour de nouveaux cas d'usage.
 
-**Key Features:**
-- Plugin architecture with automatic pack discovery via JSON manifests
-- Multi-tenant data isolation (tenant-based data segregation)
-- Conversational AI workflows with human-in-the-loop support
-- LangGraph-based orchestration for complex state machines
-- RESTful API with streaming support (Server-Sent Events)
-- Async-first architecture (FastAPI + SQLAlchemy async)
-- PostgreSQL with pgvector for semantic search capabilities
-- Modern web interface built with Next.js 15 and React 19
+Fonctionnalités principales :
+- Architecture plugin avec découverte automatique des packs via manifests JSON
+- Isolation des données multi-tenant
+- Workflows IA conversationnels avec support human-in-the-loop
+- Orchestration basée sur LangGraph pour des machines à états complexes
+- API RESTful avec support streaming (Server-Sent Events)
+- Architecture async-first (FastAPI + SQLAlchemy async)
+- PostgreSQL avec pgvector pour la recherche sémantique
+- Interface web moderne construite avec Next.js 15 et React 19
 
-## Technology Stack
+## Stack technique
 
 ### Backend
-- **Framework**: FastAPI with uvicorn
-- **Database**: PostgreSQL 15 with pgvector extension
-- **ORM**: SQLAlchemy 2.0 (async mode with asyncpg driver)
-- **AI Orchestration**: LangGraph with checkpoint persistence
-- **LLM Integration**: OpenAI GPT-4o via langchain-openai
-- **Background Tasks**: Celery with Redis (optional, graceful fallback to FastAPI BackgroundTasks)
-- **Authentication**: JWT tokens with Argon2 password hashing
-- **Logging**: structlog with contextvars for request tracing
-- **Vector Search**: sentence-transformers with pgvector storage
+- Framework : FastAPI avec uvicorn
+- Base de données : PostgreSQL 15 avec extension pgvector
+- ORM : SQLAlchemy 2.0 (mode async avec driver asyncpg)
+- Orchestration IA : LangGraph avec persistence des checkpoints
+- Intégration LLM : OpenAI GPT-4o via langchain-openai
+- Tâches background : Celery avec Redis (optionnel, fallback vers FastAPI BackgroundTasks)
+- Authentification : Tokens JWT avec hashing Argon2
+- Logging : structlog avec contextvars pour le traçage des requêtes
+- Recherche vectorielle : sentence-transformers avec stockage pgvector
 
 ### Frontend
-- **Framework**: Next.js 15.4 (App Router)
-- **UI Library**: React 19.1
-- **UI Components**: Radix UI primitives (shadcn/ui)
-- **Styling**: TailwindCSS 4
-- **State Management**: Zustand + TanStack Query v5
-- **Forms**: React Hook Form with Zod validation
-- **Type Safety**: TypeScript 5 (strict mode)
+- Framework : Next.js 15.4 (App Router)
+- UI Library : React 19.1
+- Composants UI : Radix UI primitives (shadcn/ui)
+- Styling : TailwindCSS 4
+- Gestion d'état : Zustand + TanStack Query v5
+- Formulaires : React Hook Form avec validation Zod
+- Type Safety : TypeScript 5 (strict mode)
 
 ### DevOps
-- **Containerization**: Docker with multi-stage builds
-- **Deployment**: Render.com (configured via render.yaml)
-- **CI/CD**: GitHub Actions
-- **Environment Management**: pydantic-settings with .env support
+- Conteneurisation : Docker avec builds multi-stages
+- Déploiement : Render.com (configuré via render.yaml)
+- CI/CD : GitHub Actions
+- Gestion environnement : pydantic-settings avec support .env
 
-## Project Structure
+## Structure du projet
 
 ```
 /
-├── app/                          # Backend Python application
-│   ├── core/                     # Core system modules
-│   │   ├── auth.py              # JWT authentication & Argon2 hashing
-│   │   ├── database.py          # Async SQLAlchemy setup
-│   │   ├── models.py            # Database models (Users, Tenants, Documents)
-│   │   ├── orchestrator.py      # Pack discovery & execution engine
-│   │   ├── engine.py            # ML models & embedding client
-│   │   └── logging_config.py    # Structured logging configuration
-│   ├── packs/                   # Modular business logic packs
-│   │   ├── deme_traiteur/       # Catering workflow automation (production)
-│   │   ├── form_3916/           # French tax form processing
-│   │   └── bofip/               # French tax code RAG system
-│   ├── tools/                   # Reusable AI tools
+├── app/                          # Application backend Python
+│   ├── core/                     # Modules système centraux
+│   │   ├── auth.py              # Authentification JWT & hashing Argon2
+│   │   ├── database.py          # Configuration SQLAlchemy async
+│   │   ├── models.py            # Modèles de base (Users, Tenants, Documents)
+│   │   ├── orchestrator.py      # Découverte et moteur d'exécution des packs
+│   │   ├── engine.py            # Modèles ML & client embedding
+│   │   └── logging_config.py    # Configuration logging structuré
+│   ├── packs/                   # Packs de logique métier modulaire
+│   │   ├── deme_traiteur/       # Automatisation workflow traiteur (production)
+│   │   ├── form_3916/           # Traitement formulaire fiscal français
+│   │   └── bofip/               # Système RAG code fiscal français
+│   ├── tools/                   # Outils IA réutilisables
 │   │   ├── document_classifier.py
 │   │   ├── document_parser.py
 │   │   ├── data_extractor.py
 │   │   ├── pdf_filler.py
 │   │   └── pdf_generator.py
-│   ├── api/                     # API endpoints
-│   │   ├── recipes.py           # Pack execution API
-│   │   └── chat.py              # Conversational interface
-│   ├── tests/                   # Test suite
+│   ├── api/                     # Endpoints API
+│   │   ├── recipes.py           # API d'exécution des packs
+│   │   └── chat.py              # Interface conversationnelle
+│   ├── tests/                   # Suite de tests
 │   │   ├── core/
 │   │   ├── packs/
 │   │   └── tools/
-│   ├── mcp_server/              # Model Context Protocol server
-│   └── main.py                  # FastAPI application entry point
+│   ├── mcp_server/              # Serveur Model Context Protocol
+│   └── main.py                  # Point d'entrée application FastAPI
 │
-├── frontend/                     # Next.js web interface
+├── frontend/                     # Interface web Next.js
 │   └── src/
-│       ├── app/                 # Next.js pages (App Router)
-│       ├── components/          # React components
-│       │   ├── ui/             # shadcn/ui components
-│       │   ├── recipes/        # Pack-related components
-│       │   ├── tasks/          # Task status & results
-│       │   ├── chat/           # Conversational interface
-│       │   └── forms/          # Dynamic form generation
-│       └── hooks/              # Custom React hooks
+│       ├── app/                 # Pages Next.js (App Router)
+│       ├── components/          # Composants React
+│       │   ├── ui/             # Composants shadcn/ui
+│       │   ├── recipes/        # Composants liés aux packs
+│       │   ├── tasks/          # Statut et résultats des tâches
+│       │   ├── chat/           # Interface conversationnelle
+│       │   └── forms/          # Génération dynamique de formulaires
+│       └── hooks/              # Hooks React personnalisés
 │
-├── docker-compose.yml           # Local development orchestration
-├── Dockerfile                   # Production container image
-├── render.yaml                  # Render deployment configuration
-├── requirements.txt             # Python dependencies
-└── requirements-render.txt      # Optimized dependencies for deployment
+├── docker-compose.yml           # Orchestration développement local
+├── Dockerfile                   # Image container production
+├── render.yaml                  # Configuration déploiement Render
+├── requirements.txt             # Dépendances Python
+└── requirements-render.txt      # Dépendances optimisées pour déploiement
 ```
 
-## Available Packs
+## Packs disponibles
 
 ### 1. DéMé Traiteur (Production)
-**Domain**: Catering & Event Management
-**Status**: Production deployment with real client
+Domaine : Gestion traiteur et événementiel
+Statut : Déploiement production avec client réel
 
-End-to-end automation for catering service requests:
-- Webhook integration for web form submissions
-- Notion database synchronization (Clients, Services, Quote Lines)
-- Google Calendar event creation with enriched descriptions
-- Google Sheets quote generation with template pooling system
-- Email notifications via Gmail API with OAuth2 token refresh
-- Dual execution mode (Celery worker or FastAPI BackgroundTasks)
+Automatisation end-to-end pour les demandes de prestation traiteur :
+- Intégration webhook pour soumissions de formulaire web
+- Synchronisation base de données Notion (Clients, Prestations, Lignes de devis)
+- Création d'événements Google Calendar avec descriptions enrichies
+- Génération de devis Google Sheets avec système de pooling de templates
+- Notifications email via Gmail API avec refresh automatique des tokens OAuth2
+- Mode d'exécution dual (worker Celery ou FastAPI BackgroundTasks)
 
-**Integrations**: Notion API, Google Calendar API, Google Drive API, Google Sheets API, Gmail API
+Intégrations : Notion API, Google Calendar API, Google Drive API, Google Sheets API, Gmail API
 
 ### 2. Form 3916 Processor
-**Domain**: Tax Document Processing (French fiscal form)
+Domaine : Traitement de documents fiscaux (formulaire fiscal français)
 
-LangGraph workflow with human-in-the-loop for multi-document tax form completion:
-- Document classification (ID cards, bank statements, RIB, etc.)
-- Multi-page document parsing with PyMuPDF
-- Structured data extraction using GPT-4o with Pydantic schemas
-- Field consolidation and missing data detection
-- Interactive form completion via conversational UI
-- PDF generation with ReportLab (multi-page coordinated output)
+Workflow LangGraph avec human-in-the-loop pour le remplissage de formulaire fiscal multi-documents :
+- Classification de documents (cartes d'identité, relevés bancaires, RIB, etc.)
+- Parsing de documents multi-pages avec PyMuPDF
+- Extraction de données structurées via GPT-4o avec schémas Pydantic
+- Consolidation des champs et détection des données manquantes
+- Complétion de formulaire interactive via interface conversationnelle
+- Génération PDF avec ReportLab (sortie multi-pages coordonnée)
 
-**Technologies**: LangGraph StateGraph, OpenAI structured outputs, PyMuPDF, ReportLab
+Technologies : LangGraph StateGraph, OpenAI structured outputs, PyMuPDF, ReportLab
 
 ### 3. BOFIP RAG System
-**Domain**: French Tax Code Knowledge Base
+Domaine : Base de connaissances code fiscal français
 
-Hybrid retrieval system for question-answering on French tax legislation:
-- Full-text search with PostgreSQL tsvector indexes
-- Semantic search using pgvector and multilingual embeddings
-- Result fusion with Reciprocal Rank Fusion (RRF)
-- Re-ranking with CrossEncoder (BAAI/bge-reranker-base)
-- GPT-4 answer generation with source citations
+Système de recherche hybride pour questions-réponses sur la législation fiscale française :
+- Recherche full-text avec indexes PostgreSQL tsvector
+- Recherche sémantique via pgvector et embeddings multilingues
+- Fusion des résultats avec Reciprocal Rank Fusion (RRF)
+- Re-ranking avec CrossEncoder (BAAI/bge-reranker-base)
+- Génération de réponses GPT-4 avec citations des sources
 
-**Technologies**: pgvector, sentence-transformers, CrossEncoder, LangChain RAG patterns
+Technologies : pgvector, sentence-transformers, CrossEncoder, patterns RAG LangChain
 
 ## Installation
 
-### Prerequisites
+### Prérequis
 - Python 3.11+
 - Node.js 20+
-- PostgreSQL 15+ with pgvector extension
-- Docker & Docker Compose (for local development)
-- Redis (optional, for Celery mode)
+- PostgreSQL 15+ avec extension pgvector
+- Docker & Docker Compose (pour développement local)
+- Redis (optionnel, pour mode Celery)
 
-### Local Development Setup
+### Configuration développement local
 
-1. **Clone the repository**
+1. Cloner le repository
 ```bash
 git clone <repository-url>
 cd Talaria
 ```
 
-2. **Backend Setup**
+2. Configuration Backend
 ```bash
-# Create virtual environment
+# Créer environnement virtuel
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Sur Windows: venv\Scripts\activate
 
-# Install dependencies
+# Installer dépendances
 pip install -r requirements.txt
 
-# Configure environment variables
+# Configurer variables d'environnement
 cp .env.example .env
-# Edit .env with your credentials (OpenAI API key, database URL, etc.)
+# Éditer .env avec vos credentials (clé API OpenAI, URL base de données, etc.)
 ```
 
-3. **Database Setup**
+3. Configuration Base de données
 ```bash
-# Start PostgreSQL with pgvector using Docker
+# Démarrer PostgreSQL avec pgvector via Docker
 docker-compose up -d db
 
-# Database tables are created automatically on first run
+# Les tables sont créées automatiquement au premier lancement
 ```
 
-4. **Frontend Setup**
+4. Configuration Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-5. **Run the Application**
+5. Lancer l'application
 ```bash
-# Backend (from root directory)
+# Backend (depuis le répertoire racine)
 uvicorn app.main:app --reload --port 8000
 
-# Frontend (already running from step 4)
-# Access at http://localhost:3000
+# Frontend (déjà lancé à l'étape 4)
+# Accessible sur http://localhost:3000
 ```
 
 ### Docker Compose (Full Stack)
 ```bash
-# Start all services (API, DB, Redis, Worker, Embedding Service)
+# Démarrer tous les services (API, DB, Redis, Worker, Service Embedding)
 docker-compose up -d
 
-# View logs
+# Voir les logs
 docker-compose logs -f api
 
-# Stop all services
+# Arrêter tous les services
 docker-compose down
 ```
 
 ## Configuration
 
-### Environment Variables
+### Variables d'environnement
 
-Key environment variables (see `.env.example` for complete list):
+Variables clés (voir .env.example pour la liste complète) :
 
 ```bash
-# Database
+# Base de données
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/talaria
 
-# Authentication
+# Authentification
 SECRET_KEY=your-secret-key-here
 FERNET_KEY=your-fernet-encryption-key
 
 # OpenAI
 OPENAI_API_KEY=sk-...
 
-# Celery (optional)
+# Celery (optionnel)
 CELERY_BROKER_URL=redis://localhost:6379/0
 
-# Pack-specific variables (Notion, Google APIs, etc.)
+# Variables spécifiques aux packs (Notion, Google APIs, etc.)
 ```
 
-### Pack Configuration
+### Configuration des packs
 
-Each pack includes a `manifest.json` file defining:
-- Input/output schemas
-- Required API credentials
-- Pack metadata (name, description, version)
+Chaque pack inclut un fichier manifest.json définissant :
+- Schémas input/output
+- Credentials API requises
+- Métadonnées du pack (nom, description, version)
 
-Packs are automatically discovered at startup by scanning `app/packs/*/manifest.json`.
+Les packs sont automatiquement découverts au démarrage en scannant app/packs/*/manifest.json.
 
-## Usage
+## Utilisation
 
-### API Endpoints
+### Endpoints API
 
-**Core Authentication**
-- `POST /users` - Create new user account
-- `POST /token` - Login and obtain JWT token
-- `GET /users/me` - Get current user information
+Authentification :
+- POST /users - Créer un compte utilisateur
+- POST /token - Login et obtention token JWT
+- GET /users/me - Récupérer informations utilisateur courant
 
-**Pack Execution**
-- `GET /api/recipes/` - List available packs
-- `POST /api/recipes/{id}/execute` - Execute a pack with file uploads
-- `GET /api/recipes/tasks/{task_id}` - Poll task status
-- `POST /api/recipes/tasks/{task_id}/human-input` - Submit human-in-the-loop input
+Exécution de packs :
+- GET /api/recipes/ - Lister les packs disponibles
+- POST /api/recipes/{id}/execute - Exécuter un pack avec upload de fichiers
+- GET /api/recipes/tasks/{task_id} - Interroger le statut d'une tâche
+- POST /api/recipes/tasks/{task_id}/human-input - Soumettre une entrée human-in-the-loop
 
-**Conversational Interface**
-- `POST /api/chat/message` - Send message (Server-Sent Events streaming)
-- `GET /api/conversations` - List user conversations
-- `POST /api/conversations` - Create new conversation
+Interface conversationnelle :
+- POST /api/chat/message - Envoyer un message (streaming Server-Sent Events)
+- GET /api/conversations - Lister les conversations utilisateur
+- POST /api/conversations - Créer une nouvelle conversation
 
-**Pack-Specific Endpoints**
-- `/api/packs/deme-traiteur/webhook` - Webhook for catering form submissions
-- `/api/packs/form-3916/*` - Form 3916 processing endpoints
-- `/api/packs/bofip/query` - RAG query endpoint for tax code questions
+Endpoints spécifiques aux packs :
+- /api/packs/deme-traiteur/webhook - Webhook pour soumissions formulaire traiteur
+- /api/packs/form-3916/* - Endpoints traitement Form 3916
+- /api/packs/bofip/query - Endpoint requête RAG pour questions code fiscal
 
-### Example: Execute a Pack
+### Exemple : Exécuter un pack
 
 ```bash
-# Authenticate
+# Authentification
 curl -X POST http://localhost:8000/token \
   -d "username=user@example.com&password=yourpassword"
 
-# Execute DéMé Traiteur pack
+# Exécuter le pack DéMé Traiteur
 curl -X POST http://localhost:8000/api/recipes/deme_traiteur/execute \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
@@ -281,87 +281,94 @@ curl -X POST http://localhost:8000/api/recipes/deme_traiteur/execute \
   }'
 ```
 
-## Testing
+## Tests
 
-### Backend Tests
+### Tests Backend
 ```bash
-# Run all tests
+# Lancer tous les tests
 pytest
 
-# Run specific test module
+# Lancer un module de test spécifique
 pytest app/tests/packs/test_form_3916_graph.py
 
-# Run with coverage
+# Avec couverture
 pytest --cov=app --cov-report=html
 ```
 
-### Frontend Tests
+### Tests Frontend
 ```bash
 cd frontend
 
-# Run unit tests (Vitest)
+# Lancer tests unitaires (Vitest)
 npm run test:unit
 
-# Run E2E tests (Playwright)
+# Lancer tests E2E (Playwright)
 npm run test:e2e
 
-# Run all tests
+# Lancer tous les tests
 npm run test:all
 ```
 
-## Deployment
+## Déploiement
 
 ### Render.com (Production)
 
-The project includes a `render.yaml` blueprint for one-click deployment:
+Le projet inclut un blueprint render.yaml pour déploiement en un clic :
 
-1. Push code to GitHub
-2. Connect repository to Render
-3. Configure environment variables in Render dashboard
-4. Deploy via Render Blueprint
+1. Push le code sur GitHub
+2. Connecter le repository à Render
+3. Configurer les variables d'environnement dans le dashboard Render
+4. Déployer via Render Blueprint
 
-**Services Created:**
-- Web Service: FastAPI API (`deme-api`)
-- PostgreSQL Database: 15 with pgvector (`deme-db`)
+Services créés :
+- Web Service : API FastAPI (deme-api)
+- PostgreSQL Database : 15 avec pgvector (deme-db)
 
-**Optimization for Render Free Tier:**
-- Celery mode disabled (uses FastAPI BackgroundTasks)
-- Embedding service disabled if not required
-- Template pooling for Google Drive operations to avoid quota limits
+Optimisation pour Render Free Tier :
+- Mode Celery désactivé (utilise FastAPI BackgroundTasks)
+- Service embedding désactivé si non requis
+- Template pooling pour opérations Google Drive pour éviter les limites de quota
 
-### Manual Docker Deployment
+### Déploiement Docker manuel
 ```bash
-# Build production image
+# Construire image production
 docker build -t talaria-api -f Dockerfile .
 
-# Run with environment file
+# Lancer avec fichier environnement
 docker run -d -p 8000:8000 --env-file .env talaria-api
 ```
 
-## Architecture Patterns
+## Patterns d'architecture
 
-### Plugin System
-Packs are discovered automatically via `manifest.json` files. The orchestrator loads pack metadata and routes requests dynamically.
+### Système plugin
+Les packs sont découverts automatiquement via fichiers manifest.json. L'orchestrateur charge les métadonnées des packs et route les requêtes dynamiquement.
 
-### Human-in-the-Loop
-LangGraph workflows can interrupt execution and wait for user input via the conversational interface. State is persisted using LangGraph checkpoints.
+### Human-in-the-loop
+Les workflows LangGraph peuvent interrompre l'exécution et attendre une entrée utilisateur via l'interface conversationnelle. L'état est persisté via les checkpoints LangGraph.
 
-### Multi-Tenancy
-All data operations are filtered by `tenant_id`. Users belong to tenants, and database queries automatically scope to the current user's tenant.
+### Multi-tenancy
+Toutes les opérations de données sont filtrées par tenant_id. Les utilisateurs appartiennent à des tenants, et les requêtes de base de données sont automatiquement scopées au tenant de l'utilisateur courant.
 
-### Dual Execution Mode
-The system detects the presence of `CELERY_BROKER_URL` and switches between:
-- **Celery Mode**: Background tasks executed by separate worker processes
-- **Direct Mode**: Tasks executed inline using FastAPI BackgroundTasks (suitable for free hosting tiers)
+### Mode d'exécution dual
+Le système détecte la présence de CELERY_BROKER_URL et bascule entre :
+- Mode Celery : Tâches background exécutées par des processus worker séparés
+- Mode Direct : Tâches exécutées inline via FastAPI BackgroundTasks (adapté aux tiers gratuits d'hébergement)
 
 ## Model Context Protocol (MCP)
 
-The project includes an MCP server implementation (`app/mcp_server/`) for integration with Claude Desktop. This enables direct access to Talaria packs from the Claude interface.
+Le projet inclut une implémentation serveur MCP (app/mcp_server/) pour intégration avec Claude Desktop. Cela permet un accès direct aux packs Talaria depuis l'interface Claude.
 
-## License
+## Documentation technique
 
-[Specify your license here]
+Des case studies techniques détaillées sont disponibles pour chaque pack :
+- docs/CASE_STUDY_DEME_TRAITEUR.md - Workflow production avec intégrations multi-API
+- docs/CASE_STUDY_FORM_3916.md - Traitement documents conversationnel avec LangGraph
+- docs/CASE_STUDY_BOFIP_RAG.md - Système RAG hybride avec re-ranking
+
+## Licence
+
+[Spécifier votre licence ici]
 
 ## Contact
 
-[Your contact information or contribution guidelines]
+[Vos informations de contact ou directives de contribution]
