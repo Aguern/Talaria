@@ -29,14 +29,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def get_access_token(credentials_json: str) -> str:
+async def get_access_token(credentials_str: str) -> str:
     """Get OAuth2 access token from service account credentials"""
     try:
         from google.oauth2 import service_account
         from google.auth.transport.requests import Request
 
+        # Parse credentials with same logic as GoogleSheetsClient
+        try:
+            credentials_dict = json.loads(credentials_str)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse GOOGLE_DRIVE_CREDENTIALS directly: {e}")
+            # Try fixing common issues: real newlines in private key
+            try:
+                fixed_str = credentials_str.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
+                credentials_dict = json.loads(fixed_str)
+                logger.info("Successfully parsed GOOGLE_DRIVE_CREDENTIALS after fixing newlines")
+            except Exception as e2:
+                logger.error(f"Failed to parse GOOGLE_DRIVE_CREDENTIALS even after fixing: {e2}")
+                raise Exception(f"Invalid GOOGLE_DRIVE_CREDENTIALS format: {e2}")
+
         credentials = service_account.Credentials.from_service_account_info(
-            json.loads(credentials_json),
+            credentials_dict,
             scopes=[
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/spreadsheets'
