@@ -46,6 +46,7 @@ class DemeTraiteurState(TypedDict):
     prestation_id: str
     prestation_url: str
     devis_lines: List[Dict[str, Any]]
+    rh_data: Dict[str, Any]  # RH calculation results
     calendar_event_id: str
     calendar_event_link: str
     devis_sheet_id: str
@@ -231,6 +232,42 @@ async def create_devis_lines(state: DemeTraiteurState) -> DemeTraiteurState:
         raise
 
 
+async def calculate_rh_needs(state: DemeTraiteurState) -> DemeTraiteurState:
+    """
+    Calculate RH requirements based on PAX and selected options
+
+    Queries Notion Règles RH database and adds rh_data to state
+    """
+    logger.info("Step 5: Calculating RH requirements")
+    state["current_step"] = "calculate_rh_needs"
+
+    notion = NotionClient()
+
+    try:
+        rh_data = await notion.get_rh_rules_for_prestation(
+            pax=state["pax"],
+            options=state["options"]
+        )
+        state["rh_data"] = rh_data
+        logger.info(f"RH calculated: {rh_data['chefs_count']} chefs, {rh_data['assistants_count']} assistants (Rule: {rh_data['rule_name']})")
+        return state
+
+    except Exception as e:
+        error_msg = f"Error calculating RH needs: {str(e)}"
+        logger.error(error_msg)
+        state["errors"].append(error_msg)
+        # Set default values as fallback
+        state["rh_data"] = {
+            "chefs_count": 1,
+            "assistants_count": 1,
+            "chef_cost": 220,
+            "assistant_cost": 80,
+            "total_cost": 300,
+            "rule_name": "Default (error fallback)"
+        }
+        return state
+
+
 async def create_calendar_event(state: DemeTraiteurState) -> DemeTraiteurState:
     """
     Create Google Calendar event with enriched client and prestation information
@@ -339,7 +376,7 @@ async def rename_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
 
 async def fill_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
     """
-    Fill the Google Sheet with data from Notion
+    Fill the Google Sheet with data from Notion (two-tab system: DATA + DEVIS)
     """
     logger.info("Step 7: Filling Google Sheet with data")
     state["current_step"] = "fill_sheet"
@@ -358,7 +395,8 @@ async def fill_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
             "email": state["email"],
             "telephone": state.get("telephone", ""),
             "adresse": state.get("adresse", ""),
-            "ville": state.get("ville", "")
+            "ville": state.get("ville", ""),
+            "type_client": state.get("type_client", "Particulier")
         }
 
         # Prepare prestation data
@@ -366,18 +404,42 @@ async def fill_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
             "nom_prestation": state["nom_prestation"],
             "date": state["date"],
             "pax": state["pax"],
-            "moment": state["moment"]
+            "moment": state["moment"],
+            "options": state["options"],
+            "message": state.get("message", "")
         }
 
-        # Fill the sheet
-        await sheets.fill_devis_sheet(
+        # Prepare metadata
+        from datetime import datetime
+        metadata = {
+            "prestation_id": state["prestation_id"],
+            "date_creation": datetime.now().strftime("%Y-%m-%d"),
+            "devis_numero": state.get("devis_numero", f"DEVIS-{datetime.now().strftime('%Y%m%d')}")
+        }
+
+        # Fill DATA tab with structured data
+        logger.info("Filling DATA tab with client, prestation, options, devis lines, and RH data")
+        await sheets.fill_data_tab(
             spreadsheet_id=state["devis_sheet_id"],
             client_data=client_data,
             prestation_data=prestation_data,
-            devis_lines=devis_lines
+            devis_lines=devis_lines,
+            rh_data=state.get("rh_data", {}),
+            metadata=metadata
         )
 
-        logger.info("Google Sheet filled successfully")
+        # Fill DEVIS tab with visual data
+        logger.info("Filling DEVIS tab with visual data from DATA")
+        await sheets.fill_devis_tab(
+            spreadsheet_id=state["devis_sheet_id"],
+            client_data=client_data,
+            prestation_data=prestation_data,
+            devis_lines=devis_lines,
+            rh_data=state.get("rh_data", {}),
+            metadata=metadata
+        )
+
+        logger.info("Google Sheet filled successfully (DATA + DEVIS tabs)")
         return state
 
     except Exception as e:
@@ -460,10 +522,11 @@ def build_graph() -> StateGraph:
     workflow.add_node("handle_client", handle_client)
     workflow.add_node("create_prestation", create_prestation)
     workflow.add_node("create_devis_lines", create_devis_lines)
-    workflow.add_node("create_calendar_event", create_calendar_event)
+    workflow.add_node("calculate_rh_needs", calculate_rh_needs)
     workflow.add_node("copy_sheet_template", copy_sheet_template)
     workflow.add_node("rename_sheet", rename_sheet)
     workflow.add_node("fill_sheet", fill_sheet)
+    workflow.add_node("create_calendar_event", create_calendar_event)
     workflow.add_node("send_email_notification", send_email_notification)
 
     # Define the flow
@@ -471,7 +534,8 @@ def build_graph() -> StateGraph:
     workflow.add_edge("process_data", "handle_client")
     workflow.add_edge("handle_client", "create_prestation")
     workflow.add_edge("create_prestation", "create_devis_lines")
-    workflow.add_edge("create_devis_lines", "copy_sheet_template")
+    workflow.add_edge("create_devis_lines", "calculate_rh_needs")
+    workflow.add_edge("calculate_rh_needs", "copy_sheet_template")
     workflow.add_edge("copy_sheet_template", "rename_sheet")
     workflow.add_edge("rename_sheet", "fill_sheet")
     workflow.add_edge("fill_sheet", "create_calendar_event")

@@ -25,6 +25,7 @@ class NotionClient:
         self.prestations_db_id = os.getenv("NOTION_DATABASE_PRESTATIONS_ID")
         self.catalogue_db_id = os.getenv("NOTION_DATABASE_CATALOGUE_ID")
         self.lignes_devis_db_id = os.getenv("NOTION_DATABASE_LIGNES_DEVIS_ID")
+        self.regles_rh_db_id = os.getenv("NOTION_DATABASE_REGLES_RH_ID")
 
         self.base_url = "https://api.notion.com/v1"
         self.headers = {
@@ -501,3 +502,167 @@ class NotionClient:
         except Exception as e:
             logger.error(f"Error updating client segment: {str(e)}")
             raise
+
+    async def get_rh_rules_for_prestation(
+        self,
+        pax: int,
+        options: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Calculate required staff based on PAX and selected options
+
+        Queries the "Règles RH" database to find the matching rule based on:
+        - PAX range (PAX Min <= pax <= PAX Max)
+        - Selected options (checkboxes must match)
+
+        Args:
+            pax: Number of persons for the event
+            options: List of selected menu options
+
+        Returns:
+            Dict with:
+                - chefs_count: Number of chefs needed
+                - assistants_count: Number of assistants needed
+                - chef_cost: Cost per chef (fixed at 220€)
+                - assistant_cost: Cost per assistant (fixed at 80€)
+                - total_cost: Total RH cost
+                - rule_name: Name of the matching rule
+        """
+        url = f"{self.base_url}/databases/{self.regles_rh_db_id}/query"
+
+        logger.info(f"Querying RH rules for PAX={pax}, options={options}")
+
+        # Map full option names to checkbox column names
+        option_mapping = {
+            "Antipasti froids (Burrata, salade, carpaccio, etc.)": "Antipasti froids",
+            "Antipasti chauds (fritures, arancini, crispy mozza, etc.)": "Antipasti chauds",
+            "Pizza (sur-mesure)": "Pizza",
+            "Pâtes (truffes, Carbonara, Ragù, etc.)": "Pâtes",
+            "Risotto (champignon, fruits de mer, 4 fromages, etc.)": "Risotto",
+            "Desserts (tiramisù, Panna cotta, crème pistache)": "Desserts",
+            "Planches (charcuterie, fromage)": "Planches",
+            "Boissons (soft, vin, cocktail)": "Boissons"
+        }
+
+        # Convert full names to short names
+        short_options = set()
+        for opt in options:
+            if opt in option_mapping:
+                short_options.add(option_mapping[opt])
+            else:
+                # If already short name, use it directly
+                short_options.add(opt)
+
+        # Query all rules (we'll filter client-side)
+        payload = {}
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                results = data.get("results", [])
+                logger.info(f"Found {len(results)} RH rules in database")
+
+                # Find best matching rule
+                best_match = None
+                best_match_score = -1
+
+                for page in results:
+                    props = page.get("properties", {})
+
+                    # Extract PAX range
+                    pax_min = props.get("PAX Min", {}).get("number", 0)
+                    pax_max = props.get("PAX Max", {}).get("number", 999)
+
+                    # Check if PAX is in range
+                    if not (pax_min <= pax <= pax_max):
+                        continue
+
+                    # Extract option checkboxes
+                    rule_options = set()
+                    option_columns = [
+                        "Antipasti froids", "Antipasti chauds", "Pizza",
+                        "Pâtes", "Risotto", "Desserts", "Planches", "Boissons"
+                    ]
+
+                    for col in option_columns:
+                        if props.get(col, {}).get("checkbox", False):
+                            rule_options.add(col)
+
+                    # Calculate match score (number of matching options)
+                    matching_options = short_options & rule_options
+                    match_score = len(matching_options)
+
+                    # Only consider if all selected options are present in rule
+                    if not short_options.issubset(rule_options):
+                        continue
+
+                    # Prefer rules with exact match or more specific rules
+                    if match_score > best_match_score:
+                        best_match_score = match_score
+                        best_match = page
+
+                if not best_match:
+                    # Fallback: find rule with just PAX range match
+                    logger.warning(f"No exact option match, falling back to PAX-only match")
+                    for page in results:
+                        props = page.get("properties", {})
+                        pax_min = props.get("PAX Min", {}).get("number", 0)
+                        pax_max = props.get("PAX Max", {}).get("number", 999)
+
+                        if pax_min <= pax <= pax_max:
+                            best_match = page
+                            break
+
+                if not best_match:
+                    logger.error(f"No RH rule found for PAX={pax}, options={options}")
+                    # Return default values
+                    return {
+                        "chefs_count": 1,
+                        "assistants_count": 1,
+                        "chef_cost": 220,
+                        "assistant_cost": 80,
+                        "total_cost": 300,
+                        "rule_name": "Default (no rule found)"
+                    }
+
+                # Extract staff requirements
+                props = best_match.get("properties", {})
+                chefs_count = props.get("Chefs nécessaires", {}).get("number", 1)
+                assistants_count = props.get("Assistants nécessaires", {}).get("number", 1)
+
+                # Get rule name
+                rule_name_prop = props.get("Nom règle", {}).get("title", [])
+                rule_name = rule_name_prop[0].get("plain_text", "Unknown") if rule_name_prop else "Unknown"
+
+                # Fixed costs (as per PDF example)
+                chef_cost = 220  # Chef Pizzaiolo cost
+                assistant_cost = 80  # Chef de rang / Assistant cost
+
+                total_cost = (chefs_count * chef_cost) + (assistants_count * assistant_cost)
+
+                result = {
+                    "chefs_count": chefs_count,
+                    "assistants_count": assistants_count,
+                    "chef_cost": chef_cost,
+                    "assistant_cost": assistant_cost,
+                    "total_cost": total_cost,
+                    "rule_name": rule_name
+                }
+
+                logger.info(f"RH calculation: {result}")
+                return result
+
+        except Exception as e:
+            logger.error(f"Error querying RH rules: {str(e)}")
+            # Return default values on error
+            return {
+                "chefs_count": 1,
+                "assistants_count": 1,
+                "chef_cost": 220,
+                "assistant_cost": 80,
+                "total_cost": 300,
+                "rule_name": "Default (error)"
+            }

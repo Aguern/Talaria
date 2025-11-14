@@ -490,6 +490,12 @@ class GoogleSheetsClient:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload)
+
+                # Log detailed error if status is not OK
+                if response.status_code != 200:
+                    logger.error(f"Google Sheets API error {response.status_code}: {response.text}")
+                    logger.error(f"Payload sent: {payload}")
+
                 response.raise_for_status()
                 data = response.json()
 
@@ -766,4 +772,252 @@ class GoogleSheetsClient:
             "client_updated": True,
             "prestation_updated": True,
             "lines_added": len(devis_lines)
+        }
+
+    async def fill_data_tab(
+        self,
+        spreadsheet_id: str,
+        client_data: Dict[str, Any],
+        prestation_data: Dict[str, Any],
+        devis_lines: List[Dict[str, Any]],
+        rh_data: Dict[str, Any],
+        metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Fill the DATA tab with all structured data
+
+        Args:
+            spreadsheet_id: Google Sheets ID
+            client_data: Client information (nom, email, tel, adresse, ville, type_client)
+            prestation_data: Prestation info (date, pax, moment, message)
+            devis_lines: List of devis line items
+            rh_data: RH calculation results (chefs_count, assistants_count, costs)
+            metadata: Metadata (prestation_id, date_creation, devis_numero)
+
+        Returns:
+            Dict with operation results
+        """
+        logger.info("Filling DATA tab with structured data")
+
+        from datetime import datetime
+
+        # Prepare all updates
+        updates = []
+
+        # Section 1: Metadata
+        updates.extend([
+            {"range": "DATA!B1", "values": [[metadata.get("prestation_id", "")]]},
+            {"range": "DATA!B2", "values": [[datetime.now().strftime("%Y-%m-%d %H:%M:%S")]]},
+            {"range": "DATA!B3", "values": [[metadata.get("devis_numero", "")]]},
+        ])
+
+        # Section 2: Client
+        updates.extend([
+            {"range": "DATA!B6", "values": [[client_data.get("nom_complet", "")]]},
+            {"range": "DATA!B7", "values": [[client_data.get("email", "")]]},
+            {"range": "DATA!B8", "values": [[self._format_phone(client_data.get("telephone", ""))]]},
+            {"range": "DATA!B9", "values": [[client_data.get("adresse", "")]]},
+            {"range": "DATA!B10", "values": [[client_data.get("ville", "")]]},
+            {"range": "DATA!B11", "values": [[client_data.get("type_client", "Particulier")]]},
+        ])
+
+        # Section 3: Prestation
+        updates.extend([
+            {"range": "DATA!B14", "values": [[self._format_date(prestation_data.get("date", ""))]]},
+            {"range": "DATA!B15", "values": [[prestation_data.get("pax", 0)]]},
+            {"range": "DATA!B16", "values": [[prestation_data.get("moment", "Midi")]]},
+            {"range": "DATA!B17", "values": [[prestation_data.get("message", "")]]},
+        ])
+
+        # Section 4: Options (rows 20-27)
+        options = prestation_data.get("options", [])
+        for i, option in enumerate(options[:8]):  # Max 8 options
+            # Convert MenuOption enum to string value
+            option_str = option.value if hasattr(option, 'value') else str(option)
+            updates.append({
+                "range": f"DATA!A{20 + i}",
+                "values": [[option_str]]
+            })
+
+        # Section 5: Devis lines (starting at row 31)
+        if devis_lines:
+            lines_values = []
+            for line in devis_lines:
+                lines_values.append([
+                    line.get("item_name", ""),
+                    line.get("description", ""),
+                    line.get("quantity", 0),
+                    line.get("prix_unitaire", 0),
+                    line.get("total_ligne", 0)
+                ])
+
+            end_row = 31 + len(lines_values) - 1
+            updates.append({
+                "range": f"DATA!A31:E{end_row}",
+                "values": lines_values
+            })
+
+        # Section 6: RH lines (starting at row 54)
+        rh_lines = []
+
+        # Add Chef line(s)
+        chefs_count = rh_data.get("chefs_count", 0)
+        if chefs_count > 0:
+            rh_lines.append([
+                "Chef Pizzaiolo",
+                chefs_count,
+                rh_data.get("chef_cost", 220),
+                chefs_count * rh_data.get("chef_cost", 220)
+            ])
+
+        # Add Assistant line(s)
+        assistants_count = rh_data.get("assistants_count", 0)
+        if assistants_count > 0:
+            rh_lines.append([
+                "Chef de rang / Assistant cuisine",
+                assistants_count,
+                rh_data.get("assistant_cost", 80),
+                assistants_count * rh_data.get("assistant_cost", 80)
+            ])
+
+        if rh_lines:
+            end_row = 54 + len(rh_lines) - 1
+            updates.append({
+                "range": f"DATA!A54:D{end_row}",
+                "values": rh_lines
+            })
+
+        # Execute all updates in batch
+        await self.update_cells(spreadsheet_id, updates)
+
+        logger.info(f"DATA tab filled: {len(devis_lines)} devis lines, {len(rh_lines)} RH lines")
+
+        return {
+            "spreadsheet_id": spreadsheet_id,
+            "data_tab_updated": True,
+            "devis_lines_count": len(devis_lines),
+            "rh_lines_count": len(rh_lines)
+        }
+
+    async def fill_devis_tab(
+        self,
+        spreadsheet_id: str,
+        client_data: Dict[str, Any],
+        prestation_data: Dict[str, Any],
+        devis_lines: List[Dict[str, Any]],
+        rh_data: Dict[str, Any],
+        metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Fill the DEVIS tab with visual data from DATA tab
+
+        Args:
+            spreadsheet_id: Google Sheets ID
+            client_data: Client information
+            prestation_data: Prestation details
+            devis_lines: Devis line items from Notion
+            rh_data: RH calculation results
+            metadata: Metadata (prestation_id, date, devis_numero)
+
+        Returns:
+            Dict with operation results
+        """
+        logger.info("Filling DEVIS tab with visual data")
+
+        from datetime import datetime
+
+        updates = []
+
+        # G1: Date (formatted DD/MM/YYYY)
+        date_str = datetime.now().strftime("%d/%m/%Y")
+        updates.append({
+            "range": "DEVIS!G1",
+            "values": [[date_str]]
+        })
+
+        # G2: Devis numero
+        devis_numero = metadata.get("devis_numero", "")
+        updates.append({
+            "range": "DEVIS!G2",
+            "values": [[devis_numero]]
+        })
+
+        # A6: Event description (prestation details)
+        event_description = f"Prestation : {prestation_data.get('nom_prestation', '')} - {prestation_data.get('pax', '')} PAX - {prestation_data.get('moment', '')}"
+        updates.append({
+            "range": "DEVIS!A6",
+            "values": [[event_description]]
+        })
+
+        # F6: Client name
+        client_name = client_data.get("nom_complet", "")
+        updates.append({
+            "range": "DEVIS!F6",
+            "values": [[client_name]]
+        })
+
+        # Fill devis lines (rows 11-20 for up to 10 items)
+        current_row = 11
+
+        for line in devis_lines[:10]:  # Max 10 devis lines
+            item_name = line.get("item_name", "")
+            description = line.get("description", "")
+            quantite = line.get("quantite", 1)
+            prix_unitaire = line.get("prix_unitaire", 0)
+            total_ligne = quantite * prix_unitaire
+
+            # Column A: Item name + description (combined)
+            full_description = f"{item_name}"
+            if description:
+                full_description = f"{item_name} - {description}"
+
+            updates.append({"range": f"DEVIS!A{current_row}", "values": [[full_description]]})
+            # Column E: Prix unitaire
+            updates.append({"range": f"DEVIS!E{current_row}", "values": [[prix_unitaire]]})
+            # Column F: Quantité
+            updates.append({"range": f"DEVIS!F{current_row}", "values": [[quantite]]})
+            # Column G: Total ligne
+            updates.append({"range": f"DEVIS!G{current_row}", "values": [[total_ligne]]})
+
+            current_row += 1
+
+        # Fill RH lines (after devis lines)
+        if rh_data:
+            chefs_count = rh_data.get("chefs_count", 0)
+            assistants_count = rh_data.get("assistants_count", 0)
+            chef_cost = rh_data.get("chef_cost", 220)
+            assistant_cost = rh_data.get("assistant_cost", 80)
+
+            # Chef line
+            if chefs_count > 0:
+                chef_total = chefs_count * chef_cost
+                updates.append({"range": f"DEVIS!A{current_row}", "values": [[f"Chef(s) - {chefs_count} personne(s)"]]})
+                updates.append({"range": f"DEVIS!E{current_row}", "values": [[chef_cost]]})
+                updates.append({"range": f"DEVIS!F{current_row}", "values": [[chefs_count]]})
+                updates.append({"range": f"DEVIS!G{current_row}", "values": [[chef_total]]})
+                current_row += 1
+
+            # Assistant line
+            if assistants_count > 0:
+                assistant_total = assistants_count * assistant_cost
+                updates.append({"range": f"DEVIS!A{current_row}", "values": [[f"Assistant(s) - {assistants_count} personne(s)"]]})
+                updates.append({"range": f"DEVIS!E{current_row}", "values": [[assistant_cost]]})
+                updates.append({"range": f"DEVIS!F{current_row}", "values": [[assistants_count]]})
+                updates.append({"range": f"DEVIS!G{current_row}", "values": [[assistant_total]]})
+                current_row += 1
+
+        # G25, G26, G27: Totals (use formulas referencing DATA tab)
+        updates.append({"range": "DEVIS!G25", "values": [["=DATA!E63"]]})  # TOTAL HT
+        updates.append({"range": "DEVIS!G26", "values": [["=DATA!E64"]]})  # TVA
+        updates.append({"range": "DEVIS!G27", "values": [["=DATA!E65"]]})  # TOTAL TTC
+
+        # Batch update all cells
+        await self.update_cells(spreadsheet_id, updates)
+
+        logger.info(f"DEVIS tab filled: {len(devis_lines)} items, RH data included")
+
+        return {
+            "spreadsheet_id": spreadsheet_id,
+            "devis_tab_filled": True,
+            "items_count": len(devis_lines)
         }

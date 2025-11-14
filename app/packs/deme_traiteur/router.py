@@ -43,12 +43,12 @@ router = APIRouter(
 # Menu options validation
 class MenuOption(str, Enum):
     """Valid menu options for the catalogue"""
-    ANTIPASTI_FROIDS = "Antipasti froids (burrata, salade, carapaccio, etc.)"
+    ANTIPASTI_FROIDS = "Antipasti froids (Burrata, salade, carpaccio, etc.)"
     ANTIPASTI_CHAUDS = "Antipasti chauds (fritures, arancini, crispy mozza, etc.)"
     PIZZA = "Pizza (sur-mesure)"
-    PATES = "Pâtes (Truffes, Carbonara, Ragù, etc.)"
+    PATES = "Pâtes (truffes, Carbonara, Ragù, etc.)"
     RISOTTO = "Risotto (champignon, fruits de mer, 4 fromages, etc.)"
-    DESSERTS = "Desserts (Tiramisù, Panna cotta, crème pistache)"
+    DESSERTS = "Desserts (tiramisù, Panna cotta, crème pistache)"
     PLANCHES = "Planches (charcuterie, fromage)"
     BOISSONS = "Boissons (soft, vin, cocktail)"
 
