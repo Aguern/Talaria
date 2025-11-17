@@ -42,15 +42,16 @@ class PhotoSorterEngine:
             raise ValueError("OPENAI_API_KEY environment variable is required")
 
         self.client = AsyncOpenAI(api_key=api_key)
-        self.model = "gpt-5.1-chat-latest"  # Modèle GPT-5.1 avec vision (novembre 2025)
+        self.model = "gpt-5"  # Modèle GPT-5 avec vision
 
         # Extensions d'images supportées
         self.supported_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.heic'}
 
-        # Seuils de qualité technique (ajustables)
-        self.min_sharpness = 80.0  # Seuil de netteté (Laplacian variance)
-        self.min_brightness = 20   # Luminosité minimale
-        self.max_brightness = 245  # Luminosité maximale
+        # Seuils de qualité technique (ajustables selon le type de photos)
+        # Pour photos professionnelles de mariage : seuils assouplis
+        self.min_sharpness = 50.0   # Seuil de netteté (50 = permissif, 100 = strict)
+        self.min_brightness = 10    # Luminosité minimale (10 = très permissif)
+        self.max_brightness = 250   # Luminosité maximale (250 = permissif pour high-key)
 
         # Prompt optimisé pour GPT-4 Vision
         self.analysis_prompt = """Analyse cette photo de mariage comme un photographe professionnel. Évalue ces aspects et donne un score de 0 à 100 pour chaque :
@@ -98,8 +99,9 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
             img_pil = Image.open(photo_path)
 
             # 1. Vérifier la résolution minimale (éviter les miniatures)
+            # Pour photos de mariage professionnelles : seuil très bas
             width, height = img_pil.size
-            if width < 800 or height < 600:
+            if width < 500 or height < 500:
                 log.info("Image too small, rejected",
                         file=photo_path.name,
                         resolution=f"{width}x{height}")

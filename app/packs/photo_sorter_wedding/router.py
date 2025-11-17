@@ -304,7 +304,7 @@ async def health_check():
         "pack": "photo_sorter_wedding",
         "version": "1.0.0",
         "api_configured": bool(api_key),
-        "model": "gpt-5.1-chat-latest",
+        "model": "gpt-5",
         "approach": "hybrid_3_passes",
         "cost_reduction": "70-80%"
     }
