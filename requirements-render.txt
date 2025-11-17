@@ -43,6 +43,11 @@ pymupdf
 pandas
 openpyxl
 
+# Image Processing (for photo_sorter_wedding pack)
+opencv-python-headless  # Headless version for server environments (smaller)
+pillow
+imagehash
+
 # Logging
 structlog
 
