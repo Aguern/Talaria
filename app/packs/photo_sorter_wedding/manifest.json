@@ -1,0 +1,81 @@
+{
+  "id": "photo_sorter_wedding",
+  "name": "Photo Sorter Wedding - Tri Intelligent de Photos de Mariage",
+  "description": "Trie automatiquement les photos de mariage en utilisant l'IA pour évaluer le cadrage, la lumière, le décor, l'arrière-plan et les personnes. Détecte et élimine les doublons pour ne conserver que les meilleures photos.",
+  "version": "1.0.0",
+  "category": "photography",
+  "author": "SaaS NR - Équipe Talaria",
+  "interaction_mode": "async",
+  "inputs": [
+    {
+      "name": "photos_directory",
+      "type": "text",
+      "required": true,
+      "description": "Chemin du dossier contenant les photos à trier"
+    },
+    {
+      "name": "output_directory",
+      "type": "text",
+      "required": true,
+      "description": "Chemin du dossier où sauvegarder les photos sélectionnées"
+    },
+    {
+      "name": "selection_percentage",
+      "type": "number",
+      "required": false,
+      "description": "Pourcentage de photos à conserver (par défaut: 30%)"
+    },
+    {
+      "name": "min_quality_score",
+      "type": "number",
+      "required": false,
+      "description": "Score de qualité minimum (0-100, par défaut: 70)"
+    },
+    {
+      "name": "duplicate_threshold",
+      "type": "number",
+      "required": false,
+      "description": "Seuil de similarité pour détecter les doublons (0-1, par défaut: 0.95)"
+    },
+    {
+      "name": "batch_size",
+      "type": "number",
+      "required": false,
+      "description": "Nombre de photos à traiter en parallèle (par défaut: 10)"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "total_photos",
+      "type": "number",
+      "description": "Nombre total de photos analysées"
+    },
+    {
+      "name": "selected_photos",
+      "type": "number",
+      "description": "Nombre de photos sélectionnées"
+    },
+    {
+      "name": "duplicates_removed",
+      "type": "number",
+      "description": "Nombre de doublons éliminés"
+    },
+    {
+      "name": "average_quality_score",
+      "type": "number",
+      "description": "Score de qualité moyen des photos sélectionnées"
+    },
+    {
+      "name": "processing_time",
+      "type": "number",
+      "description": "Temps de traitement total en secondes"
+    },
+    {
+      "name": "report_path",
+      "type": "text",
+      "description": "Chemin du rapport détaillé généré"
+    }
+  ],
+  "tags": ["photography", "wedding", "ai", "vision", "sorting", "quality-control"],
+  "requirements": ["Claude Vision API", "Pillow", "imagehash"]
+}
