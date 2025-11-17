@@ -156,15 +156,17 @@ async def sort_photos(
     """
     Lance le tri de photos en arrière-plan
 
-    Cette approche hybride en 3 passes optimise les coûts :
+    Cette approche hybride en 4 passes optimise les coûts :
     1. Détection de doublons avec hashing perceptuel (sans API)
     2. Filtrage technique local avec OpenCV (sans API)
-    3. Évaluation IA avec GPT-4 Vision (seulement sur photos qualifiées)
+    3a. Analyse IA low-detail sur toutes photos (85 tokens/photo)
+    3b. Analyse IA high-detail sur top 40% seulement (765 tokens/photo)
 
     **Avantages :**
-    - Réduit les coûts d'API de 70-80%
+    - Réduit les coûts d'API de ~69% (analyse 2 passes au lieu de 1)
     - Traite ~1680 photos en 15-30 minutes
     - Ne nécessite que OPENAI_API_KEY
+    - Coût estimé : ~$4-5 au lieu de $14-15
 
     Args:
         request: Paramètres de tri
@@ -305,6 +307,7 @@ async def health_check():
         "version": "1.0.0",
         "api_configured": bool(api_key),
         "model": "gpt-5",
-        "approach": "hybrid_3_passes",
-        "cost_reduction": "70-80%"
+        "approach": "hybrid_4_passes_optimized",
+        "cost_reduction": "~69%",
+        "details": "low-detail (all) → high-detail (top 40%)"
     }

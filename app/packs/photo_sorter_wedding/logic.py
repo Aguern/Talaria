@@ -162,11 +162,17 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
                      error=str(e))
             return None
 
-    async def analyze_photo_ai(self, photo_path: Path) -> Optional[Dict]:
+    async def analyze_photo_ai(self, photo_path: Path, detail: str = "high") -> Optional[Dict]:
         """
-        PASSE 3 : Analyse IA avec GPT-4 Vision
+        PASSE 3 : Analyse IA avec GPT-5 Vision
 
         Évalue les aspects artistiques et émotionnels que seule l'IA peut juger.
+
+        Args:
+            photo_path: Chemin vers la photo
+            detail: Niveau de détail ("low" ou "high")
+                   - "low" : 85 tokens/image, rapide, moins précis
+                   - "high" : 765 tokens/image, détaillé, plus précis
 
         Returns:
             Dict avec scores IA ou None si erreur
@@ -187,7 +193,7 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
             }
             media_type = media_type_map.get(extension, 'image/jpeg')
 
-            # Appeler GPT-4 Vision
+            # Appeler GPT-5 Vision
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{
@@ -197,7 +203,7 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:{media_type};base64,{image_data}",
-                                "detail": "high"  # Analyse détaillée
+                                "detail": detail  # "low" ou "high"
                             }
                         },
                         {
@@ -223,6 +229,7 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
 
             log.info("AI analysis completed",
                     file=photo_path.name,
+                    detail=detail,
                     keeper=ai_data.get('keeper', False))
 
             return ai_data
@@ -230,6 +237,7 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
         except Exception as e:
             log.error("Error in AI analysis",
                      file=str(photo_path),
+                     detail=detail,
                      error=str(e),
                      error_type=type(e).__name__)
             return None
@@ -323,11 +331,15 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
         duplicate_threshold: int = 5
     ) -> List[PhotoAnalysis]:
         """
-        Processus complet de tri en 3 passes :
+        Processus complet de tri en 4 passes (optimisé pour réduire les coûts) :
 
-        1. Détection de doublons (hashing perceptuel)
-        2. Filtrage technique (netteté, exposition)
-        3. Évaluation IA (composition, émotion)
+        1. Détection de doublons (hashing perceptuel) - gratuit
+        2. Filtrage technique (netteté, exposition) - gratuit
+        3a. Analyse IA low-detail sur toutes photos (85 tokens/photo) - économique
+        3b. Analyse IA high-detail sur top 40% seulement (765 tokens/photo) - précis
+
+        Cette approche réduit les coûts d'API de ~69% par rapport à une analyse
+        high-detail complète.
 
         Args:
             photo_paths: Liste des photos à analyser
@@ -395,42 +407,30 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
                 qualified=len(technically_qualified),
                 rejected=len(unique_photos) - len(technically_qualified))
 
-        # PASSE 3 : Évaluation IA (seulement sur photos qualifiées)
-        log.info("=== PASSE 3/3 : Évaluation IA (GPT-4 Vision) ===",
+        # PASSE 3a : Analyse IA rapide low-detail (TOUTES les photos qualifiées)
+        # Coût : ~85 tokens/photo au lieu de 765
+        log.info("=== PASSE 3a/4 : Analyse IA rapide (low-detail) ===",
                 photos_to_analyze=len(technically_qualified))
 
-        # Traiter en batches de 5 pour optimiser les coûts
-        batch_size = 5
+        low_detail_analyses = []
+        batch_size = 10  # Plus gros batch pour low-detail (plus rapide)
+
         for i in range(0, len(technically_qualified), batch_size):
             batch = technically_qualified[i:i + batch_size]
 
-            log.info("Processing AI batch",
+            log.info("Processing low-detail batch",
                     batch_num=i // batch_size + 1,
                     total_batches=(len(technically_qualified) + batch_size - 1) // batch_size,
                     batch_size=len(batch))
 
-            # Traiter le batch en parallèle
-            tasks = [self.analyze_photo_ai(photo_path) for photo_path, _ in batch]
+            # Analyse low-detail en parallèle
+            tasks = [self.analyze_photo_ai(photo_path, detail="low") for photo_path, _ in batch]
             ai_results = await asyncio.gather(*tasks)
 
-            # Combiner analyses techniques et IA
+            # Stocker les résultats avec données techniques
             for (photo_path, tech_data), ai_data in zip(batch, ai_results):
-                if ai_data is None:
-                    # Erreur IA, utiliser seulement les données techniques
-                    all_analyses.append(PhotoAnalysis(
-                        file_path=str(photo_path),
-                        file_name=photo_path.name,
-                        quality_score=tech_data['sharpness_score'],
-                        composition_score=50.0,  # Score neutre
-                        lighting_score=tech_data['exposure_score'],
-                        background_score=50.0,
-                        subject_score=50.0,
-                        sharpness_score=tech_data['sharpness_score'],
-                        technical_issues=["Analyse IA échouée"],
-                        selected=False
-                    ))
-                else:
-                    # Calculer le score global combiné (70% IA + 30% technique)
+                if ai_data is not None:
+                    # Calculer un score préliminaire
                     ai_avg = (
                         ai_data['composition_score'] +
                         ai_data['lighting_score'] +
@@ -445,23 +445,121 @@ Réponds UNIQUEMENT en JSON (sans backticks markdown) :
                         tech_data['noise_score']
                     ) / 3
 
-                    quality_score = (ai_avg * 0.7) + (tech_avg * 0.3)
+                    preliminary_score = (ai_avg * 0.7) + (tech_avg * 0.3)
 
-                    all_analyses.append(PhotoAnalysis(
-                        file_path=str(photo_path),
-                        file_name=photo_path.name,
-                        quality_score=round(quality_score, 2),
-                        composition_score=ai_data['composition_score'],
-                        lighting_score=ai_data['lighting_score'],
-                        background_score=ai_data['background_score'],
-                        subject_score=ai_data['subject_score'],
-                        sharpness_score=tech_data['sharpness_score'],
-                        description=ai_data.get('description', ''),
-                        selected=False
-                    ))
+                    low_detail_analyses.append({
+                        'photo_path': photo_path,
+                        'tech_data': tech_data,
+                        'ai_data_low': ai_data,
+                        'preliminary_score': preliminary_score
+                    })
 
-            # Pause entre batches pour éviter rate limiting
+            # Pause entre batches
+            await asyncio.sleep(0.5)
+
+        log.info("Low-detail analysis completed", analyzed=len(low_detail_analyses))
+
+        # PASSE 3b : Sélectionner le top 40% pour analyse high-detail
+        # Économie : 60% de coûts sur l'analyse détaillée
+        low_detail_analyses.sort(key=lambda x: x['preliminary_score'], reverse=True)
+        top_40_percent = int(len(low_detail_analyses) * 0.40)
+        top_candidates = low_detail_analyses[:top_40_percent]
+        bottom_candidates = low_detail_analyses[top_40_percent:]
+
+        log.info("=== PASSE 3b/4 : Analyse IA détaillée (high-detail sur top 40%) ===",
+                photos_to_analyze=len(top_candidates))
+
+        # Analyse high-detail seulement sur top 40%
+        batch_size = 5
+        for i in range(0, len(top_candidates), batch_size):
+            batch = top_candidates[i:i + batch_size]
+
+            log.info("Processing high-detail batch",
+                    batch_num=i // batch_size + 1,
+                    total_batches=(len(top_candidates) + batch_size - 1) // batch_size,
+                    batch_size=len(batch))
+
+            # Analyse high-detail en parallèle
+            tasks = [self.analyze_photo_ai(item['photo_path'], detail="high") for item in batch]
+            ai_results = await asyncio.gather(*tasks)
+
+            # Créer les analyses finales avec scores high-detail
+            for item, ai_data in zip(batch, ai_results):
+                if ai_data is None:
+                    # Utiliser le score low-detail si high-detail échoue
+                    ai_data = item['ai_data_low']
+
+                tech_data = item['tech_data']
+                photo_path = item['photo_path']
+
+                # Calculer le score final avec high-detail
+                ai_avg = (
+                    ai_data['composition_score'] +
+                    ai_data['lighting_score'] +
+                    ai_data['background_score'] +
+                    ai_data['subject_score'] +
+                    ai_data['emotional_value']
+                ) / 5
+
+                tech_avg = (
+                    tech_data['sharpness_score'] +
+                    tech_data['exposure_score'] +
+                    tech_data['noise_score']
+                ) / 3
+
+                quality_score = (ai_avg * 0.7) + (tech_avg * 0.3)
+
+                all_analyses.append(PhotoAnalysis(
+                    file_path=str(photo_path),
+                    file_name=photo_path.name,
+                    quality_score=round(quality_score, 2),
+                    composition_score=ai_data['composition_score'],
+                    lighting_score=ai_data['lighting_score'],
+                    background_score=ai_data['background_score'],
+                    subject_score=ai_data['subject_score'],
+                    sharpness_score=tech_data['sharpness_score'],
+                    description=ai_data.get('description', ''),
+                    selected=False
+                ))
+
             await asyncio.sleep(1.0)
+
+        # Ajouter les bottom 60% avec scores low-detail uniquement
+        log.info("Adding bottom 60% with low-detail scores", count=len(bottom_candidates))
+        for item in bottom_candidates:
+            ai_data = item['ai_data_low']
+            tech_data = item['tech_data']
+            photo_path = item['photo_path']
+
+            # Score basé sur low-detail
+            ai_avg = (
+                ai_data['composition_score'] +
+                ai_data['lighting_score'] +
+                ai_data['background_score'] +
+                ai_data['subject_score'] +
+                ai_data['emotional_value']
+            ) / 5
+
+            tech_avg = (
+                tech_data['sharpness_score'] +
+                tech_data['exposure_score'] +
+                tech_data['noise_score']
+            ) / 3
+
+            quality_score = (ai_avg * 0.7) + (tech_avg * 0.3)
+
+            all_analyses.append(PhotoAnalysis(
+                file_path=str(photo_path),
+                file_name=photo_path.name,
+                quality_score=round(quality_score, 2),
+                composition_score=ai_data['composition_score'],
+                lighting_score=ai_data['lighting_score'],
+                background_score=ai_data['background_score'],
+                subject_score=ai_data['subject_score'],
+                sharpness_score=tech_data['sharpness_score'],
+                description=ai_data.get('description', ''),
+                selected=False
+            ))
 
         # Sélectionner les meilleures photos
         log.info("Selecting best photos")

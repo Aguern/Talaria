@@ -1,6 +1,6 @@
 # Photo Sorter Wedding - Tri Intelligent de Photos de Mariage
 
-Pack personnalisé pour trier automatiquement vos photos de mariage en utilisant l'IA (GPT-5.1) et des algorithmes de traitement d'image avancés.
+Pack personnalisé pour trier automatiquement vos photos de mariage en utilisant l'IA (GPT-5) et des algorithmes de traitement d'image avancés.
 
 ## 🎯 Objectif
 
@@ -14,27 +14,33 @@ Trier automatiquement ~1680 photos de mariage pour ne conserver que les meilleur
 
 ## 🔬 Approche Hybride Optimisée (2025)
 
-Inspirée des meilleurs outils du marché (Aftershoot, Imagen, FilterPixel), cette solution utilise une approche en **3 passes** pour réduire les coûts d'API de 70-80% :
+Inspirée des meilleurs outils du marché (Aftershoot, Imagen, FilterPixel), cette solution utilise une approche en **4 passes** pour réduire les coûts d'API de **~69%** :
 
-### Passe 1 : Détection de doublons (Sans API)
+### Passe 1 : Détection de doublons (Sans API - Gratuit)
 - Utilise le **hashing perceptuel** (pHash) pour détecter les photos similaires
 - Robuste aux redimensionnements, compressions et petites modifications
 - Garde automatiquement la photo avec le meilleur score
+- **Économie : ~140 photos sur 1680**
 
-### Passe 2 : Filtrage technique (Sans API)
+### Passe 2 : Filtrage technique (Sans API - Gratuit)
 - Analyse locale avec **OpenCV** et **Pillow**
-- Rejette automatiquement :
-  - Photos floues (variance de Laplacian < 80)
-  - Photos trop sombres (luminosité < 20)
-  - Photos surexposées (luminosité > 245)
-  - Miniatures (résolution < 800x600)
+- Seuils assouplis pour photos professionnelles de mariage :
+  - Netteté minimale : 50 (permissif pour photos artistiques)
+  - Luminosité : 10-250 (permissif pour photos créatives et high-key)
+  - Résolution minimale : 500x500
+- **Économie : Rejet seulement des photos vraiment problématiques**
 
-### Passe 3 : Évaluation IA (Uniquement sur photos qualifiées)
-- Utilise **GPT-5.1 Vision** pour analyser :
-  - Composition artistique
-  - Valeur émotionnelle
-  - Qualité des sujets
-  - Authenticité du moment
+### Passe 3a : Analyse IA low-detail (85 tokens/photo)
+- **Toutes les photos qualifiées** sont analysées en mode rapide
+- Utilise **GPT-5 Vision** en mode `detail: "low"`
+- Évalue : composition, lumière, sujets, valeur émotionnelle
+- **Coût : ~$0.37 pour 1450 photos**
+
+### Passe 3b : Analyse IA high-detail (765 tokens/photo)
+- **Seulement le top 40%** est ré-analysé en mode détaillé
+- Mode `detail: "high"` pour analyse précise
+- Scores finaux très précis sur les meilleures candidates
+- **Coût : ~$3.99 pour 580 photos**
 
 ## 📋 Prérequis
 
@@ -132,11 +138,23 @@ Temps de traitement    : ~25 minutes
 
 ## 💰 Coût estimé
 
-Avec l'approche hybride optimisée :
+Avec l'approche hybride optimisée en 4 passes :
 
-- **1680 photos** à trier
-- Après filtrage local : ~500 photos analysées par GPT-5.1
-- Coût estimé : **~$15-20** (au lieu de ~$60-80 sans optimisation)
+### Détail des coûts pour 1680 photos :
+
+```
+Passe 1 : Doublons          → 140 doublons détectés  (gratuit)
+Passe 2 : Technique         → ~90 photos rejetées    (gratuit)
+Passe 3a : Low-detail       → 1450 photos × 85 tokens  = $0.37
+Passe 3b : High-detail      → 580 photos × 765 tokens = $3.99
+                              ─────────────────────────────
+                              TOTAL : ~$4.36
+```
+
+### Comparaison :
+- **Sans optimisation** (high-detail sur toutes) : ~$14.21
+- **Avec optimisation** (approche 4 passes) : ~$4.36
+- **Économie : 69%** 💰
 
 ## 📁 Structure du rapport
 
@@ -226,7 +244,7 @@ Augmentez `duplicate_threshold` (ex: 0.98)
 - [Aftershoot](https://aftershoot.com/) - Inspiration pour l'approche hybride
 - [Imagehash](https://github.com/JohannesBuchner/imagehash) - Hashing perceptuel
 - [OpenCV](https://opencv.org/) - Analyse technique d'images
-- [GPT-5.1 Vision](https://openai.com/index/gpt-5-1/) - Modèle IA utilisé
+- [GPT-5 Vision](https://openai.com/) - Modèle IA utilisé
 
 ## 📄 Licence
 
