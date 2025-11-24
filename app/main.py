@@ -11,7 +11,7 @@ import uuid
 import structlog
 
 from core import models, schemas, auth, crud
-from core.database import engine, Base, get_db
+from core.database import engine, Base, get_db, is_database_configured
 from core.logging_config import setup_logging
 
 # Conditional import for Celery tasks (only in Celery mode)
@@ -89,14 +89,19 @@ async def on_startup():
         except Exception as e:
             log.warning("failed to create token.json from env var", error=str(e))
 
-    async with engine.begin() as conn:
-        # On active l'extension pgvector si elle n'existe pas
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        log.info("pgvector extension enabled")
+    # Database initialization (only if DATABASE_URL is configured)
+    # DéMé Traiteur doesn't need PostgreSQL - it uses Notion for data storage
+    if is_database_configured():
+        async with engine.begin() as conn:
+            # On active l'extension pgvector si elle n'existe pas
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            log.info("pgvector extension enabled")
 
-        # Créer les tables si elles n'existent pas
-        await conn.run_sync(Base.metadata.create_all)
-    log.info("database tables ready")
+            # Créer les tables si elles n'existent pas
+            await conn.run_sync(Base.metadata.create_all)
+        log.info("database tables ready")
+    else:
+        log.info("database not configured, skipping initialization (DéMé Traiteur mode)")
 
     # Initialize template pool for DéMé Traiteur (critical for Render Free)
     try:
