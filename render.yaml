@@ -7,11 +7,12 @@ services:
     region: frankfurt  # EU region for lower latency
     healthCheckPath: /
     envVars:
-      # Database Connection
-      - key: DATABASE_URL
-        fromDatabase:
-          name: deme-db
-          property: connectionString
+      # Note: DATABASE_URL removed - DéMé Traiteur uses Notion, not PostgreSQL
+      # To re-enable database, add:
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: deme-db
+      #     property: connectionString
 
       # Note: Redis/Celery variables removed for Render Free deployment
       # DéMé Traiteur will use FastAPI BackgroundTasks in direct mode
@@ -93,14 +94,15 @@ services:
   # DéMé Traiteur uses FastAPI BackgroundTasks instead of Celery in this configuration
   # To enable Celery mode: add CELERY_BROKER_URL and CELERY_RESULT_BACKEND to envVars
 
-databases:
-  # PostgreSQL Database
-  - name: deme-db
-    databaseName: saas_nr_db
-    user: deme_user
-    plan: free
-    region: frankfurt
-    postgresMajorVersion: 15
+# Note: Database removed - DéMé Traiteur uses Notion for data storage
+# To re-enable PostgreSQL, uncomment:
+# databases:
+#   - name: deme-db
+#     databaseName: saas_nr_db
+#     user: deme_user
+#     plan: free
+#     region: frankfurt
+#     postgresMajorVersion: 15
 
 # Note: Redis n'est pas disponible en free sur Render
 # Il faut utiliser Upstash Redis (gratuit) ou payer
