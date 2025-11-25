@@ -174,12 +174,6 @@ async def create_prestation(state: DemeTraiteurState) -> DemeTraiteurState:
 
         logger.info(f"Prestation created: {state['prestation_id']}")
 
-        # Update client segment based on total prestations count
-        prestation_count = await notion.count_client_prestations(state["client_id"])
-        segment = notion.calculate_segment(prestation_count)
-        await notion.update_client_segment(state["client_id"], segment)
-        logger.info(f"Client segment updated to {segment} (based on {prestation_count} prestations)")
-
         return state
 
     except Exception as e:
@@ -235,21 +229,31 @@ async def create_devis_lines(state: DemeTraiteurState) -> DemeTraiteurState:
 async def calculate_rh_needs(state: DemeTraiteurState) -> DemeTraiteurState:
     """
     Calculate RH requirements based on PAX and selected options
-
-    Queries Notion Règles RH database and adds rh_data to state
+    Creates RH lines in Lignes de Devis
     """
-    logger.info("Step 5: Calculating RH requirements")
+    logger.info("Step 5: Calculating RH requirements and creating RH lines")
     state["current_step"] = "calculate_rh_needs"
 
     notion = NotionClient()
 
     try:
+        # Calculer les besoins RH selon les règles
         rh_data = await notion.get_rh_rules_for_prestation(
             pax=state["pax"],
             options=state["options"]
         )
         state["rh_data"] = rh_data
         logger.info(f"RH calculated: {rh_data['chefs_count']} chefs, {rh_data['assistants_count']} assistants (Rule: {rh_data['rule_name']})")
+
+        # ✅ NOUVEAU : Créer les lignes de devis RH
+        ligne_ids = await notion.create_lignes_devis_rh(
+            prestation_id=state["prestation_id"],
+            nb_chefs=rh_data["chefs_count"],
+            nb_assistants=rh_data["assistants_count"]
+        )
+
+        logger.info(f"✅ {len(ligne_ids)} lignes de devis RH créées pour prestation {state['prestation_id']}")
+
         return state
 
     except Exception as e:
@@ -261,8 +265,8 @@ async def calculate_rh_needs(state: DemeTraiteurState) -> DemeTraiteurState:
             "chefs_count": 1,
             "assistants_count": 1,
             "chef_cost": 220,
-            "assistant_cost": 80,
-            "total_cost": 300,
+            "assistant_cost": 90,
+            "total_cost": 310,
             "rule_name": "Default (error fallback)"
         }
         return state
@@ -498,6 +502,17 @@ async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState
             logger.info(f"Email notification sent successfully to {result.get('recipient')}")
         else:
             logger.warning(f"Email notification failed: {result.get('message')}")
+
+        # Update client segment based on total prestations count (after successful workflow)
+        notion = NotionClient()
+        try:
+            prestation_count = await notion.count_client_prestations(state["client_id"])
+            segment = notion.calculate_segment(prestation_count)
+            await notion.update_client_segment(state["client_id"], segment)
+            logger.info(f"Client segment updated to {segment} (based on {prestation_count} prestations)")
+        except Exception as segment_error:
+            # Don't fail the workflow if segment update fails
+            logger.warning(f"Failed to update client segment: {str(segment_error)}")
 
         return state
 

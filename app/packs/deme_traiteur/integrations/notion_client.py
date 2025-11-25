@@ -524,7 +524,7 @@ class NotionClient:
                 - chefs_count: Number of chefs needed
                 - assistants_count: Number of assistants needed
                 - chef_cost: Cost per chef (fixed at 220€)
-                - assistant_cost: Cost per assistant (fixed at 80€)
+                - assistant_cost: Cost per assistant (fixed at 90€)
                 - total_cost: Total RH cost
                 - rule_name: Name of the matching rule
         """
@@ -623,8 +623,8 @@ class NotionClient:
                         "chefs_count": 1,
                         "assistants_count": 1,
                         "chef_cost": 220,
-                        "assistant_cost": 80,
-                        "total_cost": 300,
+                        "assistant_cost": 90,
+                        "total_cost": 310,
                         "rule_name": "Default (no rule found)"
                     }
 
@@ -639,7 +639,7 @@ class NotionClient:
 
                 # Fixed costs (as per PDF example)
                 chef_cost = 220  # Chef Pizzaiolo cost
-                assistant_cost = 80  # Chef de rang / Assistant cost
+                assistant_cost = 90  # Chef de rang / Assistant cost
 
                 total_cost = (chefs_count * chef_cost) + (assistants_count * assistant_cost)
 
@@ -662,7 +662,177 @@ class NotionClient:
                 "chefs_count": 1,
                 "assistants_count": 1,
                 "chef_cost": 220,
-                "assistant_cost": 80,
-                "total_cost": 300,
+                "assistant_cost": 90,
+                "total_cost": 310,
                 "rule_name": "Default (error)"
             }
+
+    async def create_lignes_devis_rh(
+        self,
+        prestation_id: str,
+        nb_chefs: int,
+        nb_assistants: int
+    ) -> List[str]:
+        """
+        Crée les lignes de devis RH (Chef + Assistant)
+
+        Args:
+            prestation_id: ID de la prestation
+            nb_chefs: Nombre de chefs nécessaires
+            nb_assistants: Nombre d'assistants nécessaires
+
+        Returns:
+            Liste des IDs des lignes de devis créées
+        """
+        ligne_ids = []
+
+        # Récupérer les items RH du catalogue
+        catalogue_url = f"{self.base_url}/databases/{self.catalogue_db_id}/query"
+
+        # Rechercher "Chef Pizzaïolo" dans le catalogue
+        payload_chef = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "Nom",
+                        "title": {
+                            "contains": "Chef"
+                        }
+                    },
+                    {
+                        "property": "Type",
+                        "select": {
+                            "equals": "RH"
+                        }
+                    }
+                ]
+            }
+        }
+
+        # Rechercher "Assistant" dans le catalogue
+        payload_assistant = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "Nom",
+                        "title": {
+                            "contains": "Assistant"
+                        }
+                    },
+                    {
+                        "property": "Type",
+                        "select": {
+                            "equals": "RH"
+                        }
+                    }
+                ]
+            }
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                # Récupérer Chef
+                if nb_chefs > 0:
+                    response_chef = await client.post(
+                        catalogue_url,
+                        headers=self.headers,
+                        json=payload_chef
+                    )
+                    response_chef.raise_for_status()
+                    chef_results = response_chef.json().get("results", [])
+
+                    if not chef_results:
+                        error_msg = (
+                            "Configuration error: Item 'Chef Pizzaïolo' not found in Catalogue. "
+                            "Please ensure an item with 'Chef' in the name and Type='RH' exists."
+                        )
+                        logger.error(error_msg)
+                        raise Exception(error_msg)
+
+                    chef_id = chef_results[0]["id"]
+
+                    # Créer ligne de devis Chef
+                    ligne_chef = await self._create_ligne_devis(
+                        prestation_id=prestation_id,
+                        item_id=chef_id,
+                        quantite=nb_chefs,
+                        description=f"{nb_chefs} Chef(s) Pizzaïolo"
+                    )
+                    ligne_ids.append(ligne_chef)
+                    logger.info(f"✅ Ligne devis RH Chef créée: {nb_chefs} chef(s)")
+
+                # Récupérer Assistant
+                if nb_assistants > 0:
+                    response_assistant = await client.post(
+                        catalogue_url,
+                        headers=self.headers,
+                        json=payload_assistant
+                    )
+                    response_assistant.raise_for_status()
+                    assistant_results = response_assistant.json().get("results", [])
+
+                    if not assistant_results:
+                        error_msg = (
+                            "Configuration error: Item 'Assistant' not found in Catalogue. "
+                            "Please ensure an item with 'Assistant' in the name and Type='RH' exists."
+                        )
+                        logger.error(error_msg)
+                        raise Exception(error_msg)
+
+                    assistant_id = assistant_results[0]["id"]
+
+                    # Créer ligne de devis Assistant
+                    ligne_assistant = await self._create_ligne_devis(
+                        prestation_id=prestation_id,
+                        item_id=assistant_id,
+                        quantite=nb_assistants,
+                        description=f"{nb_assistants} Assistant(s)"
+                    )
+                    ligne_ids.append(ligne_assistant)
+                    logger.info(f"✅ Ligne devis RH Assistant créée: {nb_assistants} assistant(s)")
+
+            return ligne_ids
+
+        except Exception as e:
+            logger.error(f"❌ Error creating lignes devis RH: {str(e)}")
+            raise
+
+    async def _create_ligne_devis(
+        self,
+        prestation_id: str,
+        item_id: str,
+        quantite: int,
+        description: str
+    ) -> str:
+        """
+        Méthode helper pour créer une ligne de devis
+
+        Returns:
+            ID de la ligne de devis créée
+        """
+        url = f"{self.base_url}/pages"
+
+        payload = {
+            "parent": {"database_id": self.lignes_devis_db_id},
+            "properties": {
+                "Description": {
+                    "title": [{"text": {"content": description}}]
+                },
+                "Prestation": {
+                    "relation": [{"id": prestation_id}]
+                },
+                "Item du catalogue": {
+                    "relation": [{"id": item_id}]
+                },
+                "Quantité": {
+                    "number": quantite
+                }
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            ligne_id = response.json()["id"]
+
+        return ligne_id

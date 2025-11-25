@@ -857,40 +857,13 @@ class GoogleSheetsClient:
                 "values": lines_values
             })
 
-        # Section 6: RH lines (starting at row 54)
-        rh_lines = []
-
-        # Add Chef line(s)
-        chefs_count = rh_data.get("chefs_count", 0)
-        if chefs_count > 0:
-            rh_lines.append([
-                "Chef Pizzaiolo",
-                chefs_count,
-                rh_data.get("chef_cost", 220),
-                chefs_count * rh_data.get("chef_cost", 220)
-            ])
-
-        # Add Assistant line(s)
-        assistants_count = rh_data.get("assistants_count", 0)
-        if assistants_count > 0:
-            rh_lines.append([
-                "Chef de rang / Assistant cuisine",
-                assistants_count,
-                rh_data.get("assistant_cost", 80),
-                assistants_count * rh_data.get("assistant_cost", 80)
-            ])
-
-        if rh_lines:
-            end_row = 54 + len(rh_lines) - 1
-            updates.append({
-                "range": f"DATA!A54:D{end_row}",
-                "values": rh_lines
-            })
+        # Note: RH lines are now included in devis_lines (retrieved from Notion)
+        # No need to recreate them separately
 
         # Execute all updates in batch
         await self.update_cells(spreadsheet_id, updates)
 
-        logger.info(f"DATA tab filled: {len(devis_lines)} devis lines, {len(rh_lines)} RH lines")
+        logger.info(f"DATA tab filled: {len(devis_lines)} devis lines (including RH)")
 
         return {
             "spreadsheet_id": spreadsheet_id,
@@ -981,30 +954,8 @@ class GoogleSheetsClient:
 
             current_row += 1
 
-        # Fill RH lines (after devis lines)
-        if rh_data:
-            chefs_count = rh_data.get("chefs_count", 0)
-            assistants_count = rh_data.get("assistants_count", 0)
-            chef_cost = rh_data.get("chef_cost", 220)
-            assistant_cost = rh_data.get("assistant_cost", 80)
-
-            # Chef line
-            if chefs_count > 0:
-                chef_total = chefs_count * chef_cost
-                updates.append({"range": f"DEVIS!A{current_row}", "values": [[f"Chef(s) - {chefs_count} personne(s)"]]})
-                updates.append({"range": f"DEVIS!E{current_row}", "values": [[chef_cost]]})
-                updates.append({"range": f"DEVIS!F{current_row}", "values": [[chefs_count]]})
-                updates.append({"range": f"DEVIS!G{current_row}", "values": [[chef_total]]})
-                current_row += 1
-
-            # Assistant line
-            if assistants_count > 0:
-                assistant_total = assistants_count * assistant_cost
-                updates.append({"range": f"DEVIS!A{current_row}", "values": [[f"Assistant(s) - {assistants_count} personne(s)"]]})
-                updates.append({"range": f"DEVIS!E{current_row}", "values": [[assistant_cost]]})
-                updates.append({"range": f"DEVIS!F{current_row}", "values": [[assistants_count]]})
-                updates.append({"range": f"DEVIS!G{current_row}", "values": [[assistant_total]]})
-                current_row += 1
+        # Note: RH lines are now included in devis_lines (retrieved from Notion)
+        # No need to recreate them separately - they will appear in the loop above
 
         # G25, G26, G27: Totals (use formulas referencing DATA tab)
         updates.append({"range": "DEVIS!G25", "values": [["=DATA!E63"]]})  # TOTAL HT
@@ -1014,7 +965,7 @@ class GoogleSheetsClient:
         # Batch update all cells
         await self.update_cells(spreadsheet_id, updates)
 
-        logger.info(f"DEVIS tab filled: {len(devis_lines)} items, RH data included")
+        logger.info(f"DEVIS tab filled: {len(devis_lines)} items (including RH from Notion)")
 
         return {
             "spreadsheet_id": spreadsheet_id,
