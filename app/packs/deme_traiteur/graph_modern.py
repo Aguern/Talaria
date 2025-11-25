@@ -235,21 +235,31 @@ async def create_devis_lines(state: DemeTraiteurState) -> DemeTraiteurState:
 async def calculate_rh_needs(state: DemeTraiteurState) -> DemeTraiteurState:
     """
     Calculate RH requirements based on PAX and selected options
-
-    Queries Notion Règles RH database and adds rh_data to state
+    Creates RH lines in Lignes de Devis
     """
-    logger.info("Step 5: Calculating RH requirements")
+    logger.info("Step 5: Calculating RH requirements and creating RH lines")
     state["current_step"] = "calculate_rh_needs"
 
     notion = NotionClient()
 
     try:
+        # Calculer les besoins RH selon les règles
         rh_data = await notion.get_rh_rules_for_prestation(
             pax=state["pax"],
             options=state["options"]
         )
         state["rh_data"] = rh_data
         logger.info(f"RH calculated: {rh_data['chefs_count']} chefs, {rh_data['assistants_count']} assistants (Rule: {rh_data['rule_name']})")
+
+        # ✅ NOUVEAU : Créer les lignes de devis RH
+        ligne_ids = await notion.create_lignes_devis_rh(
+            prestation_id=state["prestation_id"],
+            nb_chefs=rh_data["chefs_count"],
+            nb_assistants=rh_data["assistants_count"]
+        )
+
+        logger.info(f"✅ {len(ligne_ids)} lignes de devis RH créées pour prestation {state['prestation_id']}")
+
         return state
 
     except Exception as e:
