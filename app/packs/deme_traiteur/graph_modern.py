@@ -174,12 +174,6 @@ async def create_prestation(state: DemeTraiteurState) -> DemeTraiteurState:
 
         logger.info(f"Prestation created: {state['prestation_id']}")
 
-        # Update client segment based on total prestations count
-        prestation_count = await notion.count_client_prestations(state["client_id"])
-        segment = notion.calculate_segment(prestation_count)
-        await notion.update_client_segment(state["client_id"], segment)
-        logger.info(f"Client segment updated to {segment} (based on {prestation_count} prestations)")
-
         return state
 
     except Exception as e:
@@ -271,8 +265,8 @@ async def calculate_rh_needs(state: DemeTraiteurState) -> DemeTraiteurState:
             "chefs_count": 1,
             "assistants_count": 1,
             "chef_cost": 220,
-            "assistant_cost": 80,
-            "total_cost": 300,
+            "assistant_cost": 90,
+            "total_cost": 310,
             "rule_name": "Default (error fallback)"
         }
         return state
@@ -508,6 +502,17 @@ async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState
             logger.info(f"Email notification sent successfully to {result.get('recipient')}")
         else:
             logger.warning(f"Email notification failed: {result.get('message')}")
+
+        # Update client segment based on total prestations count (after successful workflow)
+        notion = NotionClient()
+        try:
+            prestation_count = await notion.count_client_prestations(state["client_id"])
+            segment = notion.calculate_segment(prestation_count)
+            await notion.update_client_segment(state["client_id"], segment)
+            logger.info(f"Client segment updated to {segment} (based on {prestation_count} prestations)")
+        except Exception as segment_error:
+            # Don't fail the workflow if segment update fails
+            logger.warning(f"Failed to update client segment: {str(segment_error)}")
 
         return state
 

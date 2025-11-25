@@ -524,7 +524,7 @@ class NotionClient:
                 - chefs_count: Number of chefs needed
                 - assistants_count: Number of assistants needed
                 - chef_cost: Cost per chef (fixed at 220€)
-                - assistant_cost: Cost per assistant (fixed at 80€)
+                - assistant_cost: Cost per assistant (fixed at 90€)
                 - total_cost: Total RH cost
                 - rule_name: Name of the matching rule
         """
@@ -623,8 +623,8 @@ class NotionClient:
                         "chefs_count": 1,
                         "assistants_count": 1,
                         "chef_cost": 220,
-                        "assistant_cost": 80,
-                        "total_cost": 300,
+                        "assistant_cost": 90,
+                        "total_cost": 310,
                         "rule_name": "Default (no rule found)"
                     }
 
@@ -639,7 +639,7 @@ class NotionClient:
 
                 # Fixed costs (as per PDF example)
                 chef_cost = 220  # Chef Pizzaiolo cost
-                assistant_cost = 80  # Chef de rang / Assistant cost
+                assistant_cost = 90  # Chef de rang / Assistant cost
 
                 total_cost = (chefs_count * chef_cost) + (assistants_count * assistant_cost)
 
@@ -662,8 +662,8 @@ class NotionClient:
                 "chefs_count": 1,
                 "assistants_count": 1,
                 "chef_cost": 220,
-                "assistant_cost": 80,
-                "total_cost": 300,
+                "assistant_cost": 90,
+                "total_cost": 310,
                 "rule_name": "Default (error)"
             }
 
@@ -741,18 +741,25 @@ class NotionClient:
                     response_chef.raise_for_status()
                     chef_results = response_chef.json().get("results", [])
 
-                    if chef_results:
-                        chef_id = chef_results[0]["id"]
-
-                        # Créer ligne de devis Chef
-                        ligne_chef = await self._create_ligne_devis(
-                            prestation_id=prestation_id,
-                            item_id=chef_id,
-                            quantite=nb_chefs,
-                            description=f"{nb_chefs} Chef(s) Pizzaïolo"
+                    if not chef_results:
+                        error_msg = (
+                            "Configuration error: Item 'Chef Pizzaïolo' not found in Catalogue. "
+                            "Please ensure an item with 'Chef' in the name and Type='RH' exists."
                         )
-                        ligne_ids.append(ligne_chef)
-                        logger.info(f"✅ Ligne devis RH Chef créée: {nb_chefs} chef(s)")
+                        logger.error(error_msg)
+                        raise Exception(error_msg)
+
+                    chef_id = chef_results[0]["id"]
+
+                    # Créer ligne de devis Chef
+                    ligne_chef = await self._create_ligne_devis(
+                        prestation_id=prestation_id,
+                        item_id=chef_id,
+                        quantite=nb_chefs,
+                        description=f"{nb_chefs} Chef(s) Pizzaïolo"
+                    )
+                    ligne_ids.append(ligne_chef)
+                    logger.info(f"✅ Ligne devis RH Chef créée: {nb_chefs} chef(s)")
 
                 # Récupérer Assistant
                 if nb_assistants > 0:
@@ -764,18 +771,25 @@ class NotionClient:
                     response_assistant.raise_for_status()
                     assistant_results = response_assistant.json().get("results", [])
 
-                    if assistant_results:
-                        assistant_id = assistant_results[0]["id"]
-
-                        # Créer ligne de devis Assistant
-                        ligne_assistant = await self._create_ligne_devis(
-                            prestation_id=prestation_id,
-                            item_id=assistant_id,
-                            quantite=nb_assistants,
-                            description=f"{nb_assistants} Assistant(s)"
+                    if not assistant_results:
+                        error_msg = (
+                            "Configuration error: Item 'Assistant' not found in Catalogue. "
+                            "Please ensure an item with 'Assistant' in the name and Type='RH' exists."
                         )
-                        ligne_ids.append(ligne_assistant)
-                        logger.info(f"✅ Ligne devis RH Assistant créée: {nb_assistants} assistant(s)")
+                        logger.error(error_msg)
+                        raise Exception(error_msg)
+
+                    assistant_id = assistant_results[0]["id"]
+
+                    # Créer ligne de devis Assistant
+                    ligne_assistant = await self._create_ligne_devis(
+                        prestation_id=prestation_id,
+                        item_id=assistant_id,
+                        quantite=nb_assistants,
+                        description=f"{nb_assistants} Assistant(s)"
+                    )
+                    ligne_ids.append(ligne_assistant)
+                    logger.info(f"✅ Ligne devis RH Assistant créée: {nb_assistants} assistant(s)")
 
             return ligne_ids
 
