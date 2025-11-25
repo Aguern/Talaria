@@ -163,63 +163,17 @@ class GoogleSheetsClient:
 
             return template_id
 
-    async def _get_user_access_token(self) -> str:
-        """
-        Get OAuth2 access token using user credentials from GOOGLE_TOKEN_JSON env var
-        This is used for operations that require user permissions (like copying files)
-
-        Returns:
-            Access token string
-        """
-        try:
-            from google.oauth2.credentials import Credentials
-            from google.auth.transport.requests import Request
-            from pathlib import Path
-
-            token_json = os.getenv("GOOGLE_TOKEN_JSON")
-
-            if not token_json:
-                # Fallback to token.json file if env var not set (for local dev)
-                token_path = Path(__file__).parent.parent.parent.parent / "token.json"
-                if not token_path.exists():
-                    logger.error("GOOGLE_TOKEN_JSON env var not set and token.json not found")
-                    raise Exception("User credentials not found. Set GOOGLE_TOKEN_JSON env var or run setup_gmail.py.")
-
-                with open(str(token_path), 'r') as f:
-                    token_data = json.load(f)
-            else:
-                token_data = json.loads(token_json)
-
-            # Create credentials from token data
-            creds = Credentials(
-                token=token_data.get("token"),
-                refresh_token=token_data.get("refresh_token"),
-                token_uri=token_data.get("token_uri"),
-                client_id=token_data.get("client_id"),
-                client_secret=token_data.get("client_secret"),
-                scopes=token_data.get("scopes")
-            )
-
-            # Always refresh token to ensure validity
-            # This avoids expiration issues on Render where filesystem is not persistent
-            if creds.refresh_token:
-                creds.refresh(Request())
-                logger.info("User token refreshed successfully for Drive operations")
-            else:
-                logger.warning("No refresh_token available, using existing token (may expire)")
-
-            return creds.token
-
-        except Exception as e:
-            logger.error(f"Error getting user access token: {str(e)}")
-            raise
 
     async def copy_template_file(self, new_name: str) -> str:
         """
-        Copy the master template file using user account credentials
+        Copy the master template file using Service Account credentials
 
-        This uses the user's Google account (via token.json) instead of the service account
-        because the Drive API copy operation requires user permissions.
+        Uses the Service Account (GOOGLE_DRIVE_CREDENTIALS) for reliable automation.
+        Service Account tokens never expire, eliminating the OAuth2 refresh_token issues.
+
+        Requirements:
+        - Template file must be shared with Service Account email
+        - Destination folder must be shared with Service Account email
 
         Args:
             new_name: Name for the new file
@@ -230,7 +184,7 @@ class GoogleSheetsClient:
         Raises:
             Exception: If copy fails or quota is exceeded
         """
-        token = await self._get_user_access_token()
+        token = await self._get_access_token()
 
         url = f"https://www.googleapis.com/drive/v3/files/{self.template_file_id}/copy"
 
