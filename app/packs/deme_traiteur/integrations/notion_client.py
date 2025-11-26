@@ -16,6 +16,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def normalize_notion_id(notion_id: str) -> str:
+    """
+    Normalise un ID Notion en supprimant les tirets
+    Notion stocke les IDs sans tirets en interne
+
+    Args:
+        notion_id: ID Notion avec ou sans tirets
+
+    Returns:
+        ID normalisé sans tirets
+    """
+    return notion_id.replace("-", "")
+
+
 class NotionClient:
     """Client for Notion API operations"""
 
@@ -904,6 +918,11 @@ class NotionClient:
         Returns:
             Liste avec: id, item_id, item_name, description, quantite, prix_unitaire
         """
+        # Normaliser l'ID pour garantir le format sans tirets
+        original_id = prestation_id
+        prestation_id = normalize_notion_id(prestation_id)
+        logger.info(f"Fetching devis lines: original_id={original_id}, normalized_id={prestation_id}")
+
         url = f"{self.base_url}/databases/{self.lignes_devis_db_id}/query"
 
         payload = {
@@ -978,6 +997,9 @@ class NotionClient:
             ligne_id: ID de la ligne de devis
             quantite: Nouvelle quantité
         """
+        # Normaliser l'ID
+        ligne_id = normalize_notion_id(ligne_id)
+
         url = f"{self.base_url}/pages/{ligne_id}"
 
         payload = {
@@ -1005,6 +1027,9 @@ class NotionClient:
         Args:
             ligne_id: ID de la ligne de devis
         """
+        # Normaliser l'ID
+        ligne_id = normalize_notion_id(ligne_id)
+
         url = f"{self.base_url}/pages/{ligne_id}"
 
         payload = {
@@ -1038,6 +1063,10 @@ class NotionClient:
         Returns:
             ID de la ligne créée
         """
+        # Normaliser les IDs
+        prestation_id = normalize_notion_id(prestation_id)
+        item_id = normalize_notion_id(item_id)
+
         # Récupérer le nom de l'item pour la description
         item_data = await self._get_page(item_id)
         if not item_data:
