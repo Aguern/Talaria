@@ -10,7 +10,9 @@ This router supports two execution modes:
 
 import os
 from enum import Enum
+from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import structlog
@@ -74,6 +76,58 @@ class WebhookResponse(BaseModel):
     success: bool
     message: str
     task_id: Optional[str] = None
+
+
+# ============================================
+# SCHÉMAS POUR L'ÉDITEUR DE DEVIS
+# ============================================
+
+class CatalogueItem(BaseModel):
+    """Item du catalogue"""
+    id: str
+    nom: str
+    prix: float
+    type: str
+
+
+class LigneDevisItem(BaseModel):
+    """Ligne de devis existante"""
+    id: str
+    item_id: Optional[str]
+    item_name: str
+    description: str
+    quantite: int
+    prix_unitaire: float
+
+
+class LigneDevisUpdate(BaseModel):
+    """Mise à jour d'une ligne de devis"""
+    item_id: str
+    quantite: int
+
+
+class LigneDevisBulkUpdate(BaseModel):
+    """Mise à jour en masse des lignes de devis"""
+    lignes: List[LigneDevisUpdate]
+
+
+class LigneDevisBulkUpdateResponse(BaseModel):
+    """Réponse de la mise à jour en masse"""
+    success: bool
+    created: int
+    updated: int
+    deleted: int
+    message: str
+
+
+class PrestationActive(BaseModel):
+    """Prestation active pour l'éditeur"""
+    id: str
+    nom_prestation: str
+    date: str
+    statut: str
+    client_name: str
+    pax: int
 
 
 async def run_workflow_direct(data: dict):
@@ -308,3 +362,205 @@ async def health_check():
         "mode": "celery" if CELERY_MODE else "direct",
         "description": "Celery mode" if CELERY_MODE else "Direct execution (Render Free)"
     }
+
+
+# ============================================
+# ENDPOINTS ÉDITEUR DE DEVIS
+# ============================================
+
+@router.get("/editor", response_class=HTMLResponse)
+async def devis_editor():
+    """
+    Servir l'interface HTML de l'éditeur de devis
+
+    Returns:
+        Interface web complète pour éditer les lignes de devis
+    """
+    try:
+        # Chemin vers le template HTML
+        template_path = Path(__file__).parent / "templates" / "devis_editor.html"
+
+        with open(template_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        return HTMLResponse(content=html_content)
+
+    except FileNotFoundError:
+        log.error("Template HTML not found", path=str(template_path))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interface de l'éditeur introuvable"
+        )
+    except Exception as e:
+        log.error("Error serving editor template", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors du chargement de l'éditeur: {str(e)}"
+        )
+
+
+@router.get("/prestations/actives", response_model=List[PrestationActive])
+async def get_active_prestations():
+    """
+    Récupère les prestations actives (statut "A confirmer" ou "Confirmée", date >= aujourd'hui)
+
+    Returns:
+        Liste des prestations triées par date croissante
+    """
+    try:
+        from .integrations.notion_client import NotionClient
+
+        notion = NotionClient()
+        prestations = await notion.get_active_prestations()
+
+        log.info(f"Retrieved {len(prestations)} active prestations")
+        return prestations
+
+    except Exception as e:
+        log.error("Error fetching active prestations", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la récupération des prestations actives: {str(e)}"
+        )
+
+
+@router.get("/catalogue", response_model=List[CatalogueItem])
+async def get_catalogue():
+    """
+    Récupère tous les items du catalogue (Produit catalogue + RH)
+
+    Returns:
+        Liste de tous les items avec id, nom, prix, type
+    """
+    try:
+        from .integrations.notion_client import NotionClient
+
+        notion = NotionClient()
+        items = await notion.get_all_catalogue_items()
+
+        log.info(f"Retrieved {len(items)} catalogue items")
+        return items
+
+    except Exception as e:
+        log.error("Error fetching catalogue", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la récupération du catalogue: {str(e)}"
+        )
+
+
+@router.get("/lignes/{prestation_id}", response_model=List[LigneDevisItem])
+async def get_lignes_devis(prestation_id: str):
+    """
+    Récupère les lignes de devis existantes pour une prestation
+
+    Args:
+        prestation_id: ID Notion de la prestation
+
+    Returns:
+        Liste des lignes de devis avec détails complets
+    """
+    try:
+        from .integrations.notion_client import NotionClient
+
+        notion = NotionClient()
+        lignes = await notion.get_devis_lines_for_editor(prestation_id)
+
+        log.info(f"Retrieved {len(lignes)} devis lines for prestation {prestation_id}")
+        return lignes
+
+    except Exception as e:
+        log.error("Error fetching devis lines",
+                 error=str(e),
+                 prestation_id=prestation_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la récupération des lignes de devis: {str(e)}"
+        )
+
+
+@router.post("/lignes/{prestation_id}", response_model=LigneDevisBulkUpdateResponse)
+async def update_lignes_devis(prestation_id: str, update: LigneDevisBulkUpdate):
+    """
+    Met à jour les lignes de devis d'une prestation (création/modification/suppression)
+
+    Args:
+        prestation_id: ID Notion de la prestation
+        update: Nouvelles lignes à appliquer
+
+    Returns:
+        Statistiques des opérations effectuées
+    """
+    try:
+        from .integrations.notion_client import NotionClient
+
+        notion = NotionClient()
+
+        # Récupérer les lignes existantes
+        existing_lignes = await notion.get_devis_lines_for_editor(prestation_id)
+
+        # Créer un mapping des lignes existantes par item_id
+        existing_map = {ligne["item_id"]: ligne for ligne in existing_lignes if ligne["item_id"]}
+
+        # Créer un set des item_ids dans la nouvelle requête
+        new_item_ids = {ligne.item_id for ligne in update.lignes}
+
+        created = 0
+        updated = 0
+        deleted = 0
+
+        # Traiter les nouvelles lignes et mises à jour
+        for ligne_update in update.lignes:
+            if ligne_update.quantite <= 0:
+                continue  # Ignorer les lignes avec quantité <= 0
+
+            if ligne_update.item_id in existing_map:
+                # Mise à jour si la quantité a changé
+                existing_ligne = existing_map[ligne_update.item_id]
+                if existing_ligne["quantite"] != ligne_update.quantite:
+                    await notion.update_ligne_devis(
+                        existing_ligne["id"],
+                        ligne_update.quantite
+                    )
+                    updated += 1
+                    log.info(f"Updated ligne {existing_ligne['id']} with quantite={ligne_update.quantite}")
+            else:
+                # Création d'une nouvelle ligne
+                await notion.create_ligne_devis_from_editor(
+                    prestation_id=prestation_id,
+                    item_id=ligne_update.item_id,
+                    quantite=ligne_update.quantite
+                )
+                created += 1
+                log.info(f"Created new ligne for item {ligne_update.item_id}")
+
+        # Supprimer les lignes qui ne sont plus présentes
+        for item_id, existing_ligne in existing_map.items():
+            if item_id not in new_item_ids:
+                await notion.delete_ligne_devis(existing_ligne["id"])
+                deleted += 1
+                log.info(f"Deleted ligne {existing_ligne['id']}")
+
+        message = f"✅ {created} créées, {updated} mises à jour, {deleted} supprimées"
+        log.info("Bulk update completed",
+                prestation_id=prestation_id,
+                created=created,
+                updated=updated,
+                deleted=deleted)
+
+        return LigneDevisBulkUpdateResponse(
+            success=True,
+            created=created,
+            updated=updated,
+            deleted=deleted,
+            message=message
+        )
+
+    except Exception as e:
+        log.error("Error updating devis lines",
+                 error=str(e),
+                 prestation_id=prestation_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la mise à jour des lignes: {str(e)}"
+        )
