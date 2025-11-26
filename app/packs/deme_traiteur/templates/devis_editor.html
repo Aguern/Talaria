@@ -9,8 +9,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>🍕 Éditeur de Devis - DéMé Traiteur</h1>
-            <p class="subtitle">Affinez facilement les lignes de devis d'une prestation</p>
+            <h1>Éditeur de Devis</h1>
+            <p class="subtitle">DéMé Traiteur</p>
         </header>
 
         <!-- Sélecteur de prestation -->
@@ -18,43 +18,43 @@
             <!-- Mode de sélection -->
             <div class="mode-selector">
                 <button onclick="switchMode('dropdown')" class="mode-btn active" data-mode="dropdown">
-                    📋 Prestations actives
+                    Prestations actives
                 </button>
                 <button onclick="switchMode('manual')" class="mode-btn" data-mode="manual">
-                    ✏️ Saisie manuelle ID
+                    Saisie manuelle
                 </button>
             </div>
 
             <!-- Liste déroulante (par défaut) -->
             <div id="dropdown-mode" class="input-group">
-                <label for="prestation-select">Sélectionnez une prestation :</label>
+                <label for="prestation-select">Prestation</label>
                 <select
                     id="prestation-select"
                     aria-label="Sélectionner une prestation"
                     onchange="loadPrestationFromDropdown()"
                 >
-                    <option value="">-- Chargement... --</option>
+                    <option value="">Chargement...</option>
                 </select>
-                <button onclick="loadPrestationFromDropdown()" class="btn-load">📥 Charger</button>
+                <button onclick="loadPrestationFromDropdown()" class="btn-load">Charger</button>
             </div>
 
             <!-- Saisie manuelle (cachée par défaut) -->
             <div id="manual-mode" class="input-group hidden">
-                <label for="prestation-id">ID de la Prestation :</label>
+                <label for="prestation-id">ID Prestation</label>
                 <input
                     type="text"
                     id="prestation-id"
-                    placeholder="Collez l'ID de la prestation Notion ici (ex: 12ee0019-fd5c-48c6-b18c-e28be4151cf1)"
+                    placeholder="ID de la prestation (ex: 12ee0019-fd5c-48c6-b18c-e28be4151cf1)"
                     aria-label="ID de la prestation"
                 >
-                <button onclick="loadPrestation()" class="btn-load">📥 Charger</button>
+                <button onclick="loadPrestation()" class="btn-load">Charger</button>
             </div>
 
             <p class="help-text" id="help-dropdown">
-                💡 Prestations "A confirmer" ou "Confirmée" avec date >= aujourd'hui
+                Affichage des prestations "A confirmer" et "Confirmée" avec date >= aujourd'hui
             </p>
             <p class="help-text hidden" id="help-manual">
-                💡 Copiez l'ID depuis l'URL de la page Notion de la prestation
+                L'ID se trouve dans l'URL de la page Notion de la prestation
             </p>
         </div>
 
@@ -63,10 +63,9 @@
 
         <!-- Liste des produits catalogue -->
         <div id="catalogue-section" class="catalogue-section hidden">
-            <h2>📋 Catalogue Complet</h2>
+            <h2>Catalogue</h2>
             <p class="section-description">
-                Cochez les produits souhaités et ajustez les quantités.
-                Les modifications seront synchronisées avec Notion en cliquant sur "Valider".
+                Sélectionnez les produits et ajustez les quantités. Les modifications seront synchronisées avec Notion.
             </p>
 
             <!-- Filtres par type -->
@@ -90,7 +89,7 @@
             <!-- Bouton validation -->
             <div class="validation-section">
                 <button class="btn-validate" onclick="saveDevis()">
-                    ✅ Valider et synchroniser avec Notion
+                    Valider et synchroniser
                 </button>
             </div>
         </div>
@@ -180,7 +179,7 @@
             prestationId = select.value;
 
             if (!prestationId) {
-                showStatus('⚠️ Veuillez sélectionner une prestation', 'warning');
+                showStatus('Veuillez sélectionner une prestation', 'warning');
                 return;
             }
 
@@ -209,7 +208,7 @@
 
             } catch (error) {
                 console.error('Erreur lors du chargement du catalogue:', error);
-                showStatus(`❌ Erreur: ${error.message}`, 'error');
+                showStatus(`Erreur : ${error.message}`, 'error');
             }
         }
 
@@ -221,7 +220,7 @@
             prestationId = document.getElementById('prestation-id').value.trim();
 
             if (!prestationId) {
-                showStatus('⚠️ Veuillez saisir un ID de prestation', 'warning');
+                showStatus('Veuillez saisir un ID de prestation', 'warning');
                 return;
             }
 
@@ -254,11 +253,11 @@
                 // Mettre à jour les quantités depuis les lignes existantes
                 updateQuantities();
 
-                showStatus(`✅ Prestation chargée : ${lignesExistantes.length} ligne(s) de devis trouvée(s)`, 'success');
+                showStatus(`Prestation chargée : ${lignesExistantes.length} ligne(s) de devis`, 'success');
 
             } catch (error) {
                 console.error('Erreur lors du chargement de la prestation:', error);
-                showStatus(`❌ Erreur: ${error.message}`, 'error');
+                showStatus(`Erreur : ${error.message}`, 'error');
             }
         }
 
@@ -397,9 +396,11 @@
 
         async function saveDevis() {
             if (!prestationId) {
-                showStatus('⚠️ Aucune prestation chargée', 'warning');
+                showStatus('Aucune prestation chargée', 'warning');
                 return;
             }
+
+            const saveBtn = document.querySelector('.btn-validate');
 
             try {
                 // Collecter toutes les lignes cochées avec quantité > 0
@@ -417,11 +418,14 @@
                 });
 
                 if (lignes.length === 0) {
-                    showStatus('⚠️ Aucune ligne à sauvegarder (sélectionnez au moins un produit)', 'warning');
+                    showStatus('Aucune ligne à sauvegarder (sélectionnez au moins un produit)', 'warning');
                     return;
                 }
 
-                showStatus('💾 Sauvegarde en cours...', 'info');
+                // Désactiver le bouton pendant la sauvegarde
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Synchronisation en cours...';
+                showStatus('Synchronisation avec Notion en cours...', 'info');
 
                 const res = await fetch(`/api/packs/deme-traiteur/lignes/${prestationId}`, {
                     method: 'POST',
@@ -438,19 +442,35 @@
 
                 const result = await res.json();
 
+                // Afficher un message de succès détaillé
+                const details = [];
+                if (result.created > 0) details.push(`${result.created} ligne(s) créée(s)`);
+                if (result.updated > 0) details.push(`${result.updated} ligne(s) modifiée(s)`);
+                if (result.deleted > 0) details.push(`${result.deleted} ligne(s) supprimée(s)`);
+
+                const detailMessage = details.length > 0 ? details.join(', ') : 'Aucune modification';
+
                 showStatus(
-                    `✅ Synchronisation réussie ! ${result.message}`,
+                    `✓ Modifications enregistrées dans Notion avec succès\n${detailMessage}`,
                     'success'
                 );
+
+                // Réactiver le bouton
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Valider et synchroniser';
 
                 // Recharger les lignes pour synchroniser l'affichage
                 setTimeout(() => {
                     loadPrestationData();
-                }, 1500);
+                }, 2000);
 
             } catch (error) {
                 console.error('Erreur lors de la sauvegarde:', error);
-                showStatus(`❌ Erreur: ${error.message}`, 'error');
+                showStatus(`✗ Erreur lors de la synchronisation avec Notion\n${error.message}`, 'error');
+
+                // Réactiver le bouton en cas d'erreur
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Valider et synchroniser';
             }
         }
 
