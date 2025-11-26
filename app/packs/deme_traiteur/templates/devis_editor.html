@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Éditeur de Devis - DéMé Traiteur</title>
+    <link rel="stylesheet" href="/static/devis_editor.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍕 Éditeur de Devis - DéMé Traiteur</h1>
+            <p class="subtitle">Affinez facilement les lignes de devis d'une prestation</p>
+        </header>
+
+        <!-- Sélecteur de prestation -->
+        <div class="prestation-selector">
+            <div class="input-group">
+                <label for="prestation-id">ID de la Prestation :</label>
+                <input
+                    type="text"
+                    id="prestation-id"
+                    placeholder="Collez l'ID de la prestation Notion ici (ex: 12ee0019-fd5c-48c6-b18c-e28be4151cf1)"
+                    aria-label="ID de la prestation"
+                >
+                <button onclick="loadPrestation()" class="btn-load">📥 Charger</button>
+            </div>
+            <p class="help-text">
+                💡 Astuce : Copiez l'ID depuis l'URL de la page Notion de la prestation
+            </p>
+        </div>
+
+        <!-- Zone de statut -->
+        <div id="status" class="status hidden" role="status" aria-live="polite"></div>
+
+        <!-- Liste des produits catalogue -->
+        <div id="catalogue-section" class="catalogue-section hidden">
+            <h2>📋 Catalogue Complet</h2>
+            <p class="section-description">
+                Cochez les produits souhaités et ajustez les quantités.
+                Les modifications seront synchronisées avec Notion en cliquant sur "Valider".
+            </p>
+
+            <!-- Filtres par type -->
+            <div class="filters">
+                <button onclick="filterByType('all')" class="filter-btn active" data-type="all">
+                    Tous les items
+                </button>
+                <button onclick="filterByType('Produit catalogue')" class="filter-btn" data-type="Produit catalogue">
+                    Produits Catalogue
+                </button>
+                <button onclick="filterByType('RH')" class="filter-btn" data-type="RH">
+                    Ressources Humaines
+                </button>
+            </div>
+
+            <!-- Liste des produits -->
+            <div id="catalogue-list" class="catalogue-list">
+                <!-- Généré dynamiquement par JavaScript -->
+            </div>
+
+            <!-- Bouton validation -->
+            <div class="validation-section">
+                <button class="btn-validate" onclick="saveDevis()">
+                    ✅ Valider et synchroniser avec Notion
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let catalogue = [];
+        let lignesExistantes = [];
+        let prestationId = null;
+        let currentFilter = 'all';
+
+        // ============================================
+        // CHARGEMENT INITIAL DU CATALOGUE
+        // ============================================
+
+        async function loadCatalogue() {
+            try {
+                showStatus('Chargement du catalogue...', 'info');
+                const res = await fetch('/api/packs/deme-traiteur/catalogue');
+
+                if (!res.ok) {
+                    throw new Error(`Erreur ${res.status}: ${res.statusText}`);
+                }
+
+                catalogue = await res.json();
+                console.log(`Catalogue chargé: ${catalogue.length} items`);
+
+                // Masquer le statut une fois chargé
+                hideStatus();
+
+            } catch (error) {
+                console.error('Erreur lors du chargement du catalogue:', error);
+                showStatus(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================
+        // CHARGEMENT D'UNE PRESTATION
+        // ============================================
+
+        async function loadPrestation() {
+            prestationId = document.getElementById('prestation-id').value.trim();
+
+            if (!prestationId) {
+                showStatus('⚠️ Veuillez saisir un ID de prestation', 'warning');
+                return;
+            }
+
+            try {
+                showStatus('Chargement des lignes de devis...', 'info');
+
+                const res = await fetch(`/api/packs/deme-traiteur/lignes/${prestationId}`);
+
+                if (!res.ok) {
+                    throw new Error(`Erreur ${res.status}: ${res.statusText}`);
+                }
+
+                lignesExistantes = await res.json();
+                console.log(`Lignes chargées: ${lignesExistantes.length}`);
+
+                // Afficher la section catalogue
+                document.getElementById('catalogue-section').classList.remove('hidden');
+
+                // Rendre le catalogue avec les données
+                renderCatalogue();
+
+                // Mettre à jour les quantités depuis les lignes existantes
+                updateQuantities();
+
+                showStatus(`✅ Prestation chargée : ${lignesExistantes.length} ligne(s) de devis trouvée(s)`, 'success');
+
+            } catch (error) {
+                console.error('Erreur lors du chargement de la prestation:', error);
+                showStatus(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================
+        // RENDU DU CATALOGUE
+        // ============================================
+
+        function renderCatalogue() {
+            const container = document.getElementById('catalogue-list');
+            container.innerHTML = '';
+
+            // Filtrer selon le type sélectionné
+            const filteredCatalogue = currentFilter === 'all'
+                ? catalogue
+                : catalogue.filter(item => item.type === currentFilter);
+
+            if (filteredCatalogue.length === 0) {
+                container.innerHTML = '<p class="empty-message">Aucun item trouvé</p>';
+                return;
+            }
+
+            // Grouper par type
+            const groupedByType = {};
+            filteredCatalogue.forEach(item => {
+                if (!groupedByType[item.type]) {
+                    groupedByType[item.type] = [];
+                }
+                groupedByType[item.type].push(item);
+            });
+
+            // Rendre chaque groupe
+            Object.keys(groupedByType).sort().forEach(type => {
+                // Header du groupe
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'group-header';
+                groupHeader.innerHTML = `<h3>${type}</h3>`;
+                container.appendChild(groupHeader);
+
+                // Items du groupe
+                groupedByType[type].forEach(item => {
+                    const productDiv = document.createElement('div');
+                    productDiv.className = 'product-item';
+                    productDiv.dataset.itemId = item.id;
+                    productDiv.dataset.type = item.type;
+
+                    productDiv.innerHTML = `
+                        <input
+                            type="checkbox"
+                            data-item-id="${item.id}"
+                            aria-label="Sélectionner ${item.nom}"
+                            onchange="toggleProduct('${item.id}')"
+                        >
+                        <span class="product-name">${item.nom}</span>
+                        <span class="product-price">${item.prix.toFixed(2)}€</span>
+                        <input
+                            type="number"
+                            class="quantity"
+                            min="0"
+                            value="0"
+                            data-item-id="${item.id}"
+                            aria-label="Quantité pour ${item.nom}"
+                            onchange="updateCheckbox('${item.id}')"
+                        >
+                    `;
+
+                    container.appendChild(productDiv);
+                });
+            });
+        }
+
+        // ============================================
+        // GESTION DES FILTRES
+        // ============================================
+
+        function filterByType(type) {
+            currentFilter = type;
+
+            // Mettre à jour les boutons actifs
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.type === type) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Re-rendre le catalogue
+            renderCatalogue();
+
+            // Re-appliquer les quantités
+            updateQuantities();
+        }
+
+        // ============================================
+        // SYNCHRONISATION CHECKBOX <-> QUANTITÉ
+        // ============================================
+
+        function toggleProduct(itemId) {
+            const checkbox = document.querySelector(`input[type="checkbox"][data-item-id="${itemId}"]`);
+            const quantityInput = document.querySelector(`input[type="number"][data-item-id="${itemId}"]`);
+
+            if (checkbox.checked && parseInt(quantityInput.value) === 0) {
+                quantityInput.value = 1;
+            } else if (!checkbox.checked) {
+                quantityInput.value = 0;
+            }
+        }
+
+        function updateCheckbox(itemId) {
+            const checkbox = document.querySelector(`input[type="checkbox"][data-item-id="${itemId}"]`);
+            const quantityInput = document.querySelector(`input[type="number"][data-item-id="${itemId}"]`);
+
+            checkbox.checked = parseInt(quantityInput.value) > 0;
+        }
+
+        // ============================================
+        // MISE À JOUR DES QUANTITÉS DEPUIS LIGNES EXISTANTES
+        // ============================================
+
+        function updateQuantities() {
+            lignesExistantes.forEach(ligne => {
+                if (!ligne.item_id) return;
+
+                const checkbox = document.querySelector(`input[type="checkbox"][data-item-id="${ligne.item_id}"]`);
+                const quantityInput = document.querySelector(`input[type="number"][data-item-id="${ligne.item_id}"]`);
+
+                if (checkbox && quantityInput) {
+                    checkbox.checked = true;
+                    quantityInput.value = ligne.quantite;
+                }
+            });
+        }
+
+        // ============================================
+        // SAUVEGARDE DES MODIFICATIONS
+        // ============================================
+
+        async function saveDevis() {
+            if (!prestationId) {
+                showStatus('⚠️ Aucune prestation chargée', 'warning');
+                return;
+            }
+
+            try {
+                // Collecter toutes les lignes cochées avec quantité > 0
+                const lignes = [];
+                document.querySelectorAll('.product-item').forEach(item => {
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    const quantityInput = item.querySelector('input[type="number"]');
+
+                    if (checkbox.checked && parseInt(quantityInput.value) > 0) {
+                        lignes.push({
+                            item_id: checkbox.dataset.itemId,
+                            quantite: parseInt(quantityInput.value)
+                        });
+                    }
+                });
+
+                if (lignes.length === 0) {
+                    showStatus('⚠️ Aucune ligne à sauvegarder (sélectionnez au moins un produit)', 'warning');
+                    return;
+                }
+
+                showStatus('💾 Sauvegarde en cours...', 'info');
+
+                const res = await fetch(`/api/packs/deme-traiteur/lignes/${prestationId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lignes })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || `Erreur ${res.status}`);
+                }
+
+                const result = await res.json();
+
+                showStatus(
+                    `✅ Synchronisation réussie ! ${result.message}`,
+                    'success'
+                );
+
+                // Recharger les lignes pour synchroniser l'affichage
+                setTimeout(() => {
+                    loadPrestation();
+                }, 1500);
+
+            } catch (error) {
+                console.error('Erreur lors de la sauvegarde:', error);
+                showStatus(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================
+        // GESTION DES MESSAGES DE STATUT
+        // ============================================
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.classList.add('hidden');
+        }
+
+        // ============================================
+        // INITIALISATION AU CHARGEMENT
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Éditeur de devis DéMé Traiteur initialisé');
+            loadCatalogue();
+        });
+    </script>
+</body>
+</html>

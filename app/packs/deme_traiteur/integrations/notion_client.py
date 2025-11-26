@@ -836,3 +836,226 @@ class NotionClient:
             ligne_id = response.json()["id"]
 
         return ligne_id
+
+    # ============================================
+    # MÉTHODES POUR L'ÉDITEUR DE DEVIS
+    # ============================================
+
+    async def get_all_catalogue_items(self) -> List[Dict[str, Any]]:
+        """
+        Récupère tous les items du catalogue (Produit catalogue + RH)
+
+        Returns:
+            Liste de dictionnaires avec: id, nom, prix, type
+        """
+        url = f"{self.base_url}/databases/{self.catalogue_db_id}/query"
+
+        # Pas de filtre - on veut tous les items
+        payload = {}
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                items = []
+                for page in data.get("results", []):
+                    props = page.get("properties", {})
+
+                    # Extract nom
+                    nom = ""
+                    if "Nom" in props:
+                        title_array = props["Nom"].get("title", [])
+                        if title_array:
+                            nom = title_array[0]["text"]["content"]
+
+                    # Extract prix
+                    prix = props.get("Prix", {}).get("number", 0)
+
+                    # Extract type
+                    type_item = ""
+                    if "Type" in props:
+                        select = props["Type"].get("select")
+                        if select:
+                            type_item = select.get("name", "")
+
+                    items.append({
+                        "id": page["id"],
+                        "nom": nom,
+                        "prix": prix if prix is not None else 0,
+                        "type": type_item
+                    })
+
+                logger.info(f"Retrieved {len(items)} catalogue items")
+                return items
+
+        except Exception as e:
+            logger.error(f"Error retrieving catalogue items: {str(e)}")
+            raise
+
+    async def get_devis_lines_for_editor(self, prestation_id: str) -> List[Dict[str, Any]]:
+        """
+        Récupère les lignes de devis pour l'éditeur (avec IDs)
+
+        Args:
+            prestation_id: ID de la prestation
+
+        Returns:
+            Liste avec: id, item_id, item_name, description, quantite, prix_unitaire
+        """
+        url = f"{self.base_url}/databases/{self.lignes_devis_db_id}/query"
+
+        payload = {
+            "filter": {
+                "property": "Prestation",
+                "relation": {
+                    "contains": prestation_id
+                }
+            }
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                lines = []
+                for line in data.get("results", []):
+                    props = line["properties"]
+
+                    # Extract description
+                    description = ""
+                    if "Description" in props:
+                        title_array = props["Description"].get("title", [])
+                        if title_array:
+                            description = title_array[0]["text"]["content"]
+
+                    # Extract item_id from relation
+                    item_id = None
+                    item_name = ""
+                    if "Item du catalogue" in props and props["Item du catalogue"].get("relation"):
+                        item_id = props["Item du catalogue"]["relation"][0]["id"]
+                        # Fetch catalogue item name
+                        item_data = await self._get_page(item_id)
+                        if item_data and "Nom" in item_data["properties"]:
+                            title_array = item_data["properties"]["Nom"].get("title", [])
+                            if title_array:
+                                item_name = title_array[0]["text"]["content"]
+
+                    # Extract quantite
+                    quantite = props.get("Quantité", {}).get("number", 0)
+
+                    # Extract prix unitaire (rollup)
+                    prix_unitaire = 0
+                    if "Prix unitaire" in props:
+                        rollup = props["Prix unitaire"].get("rollup", {})
+                        if rollup.get("type") == "number":
+                            prix_unitaire = rollup.get("number", 0)
+
+                    lines.append({
+                        "id": line["id"],
+                        "item_id": item_id,
+                        "item_name": item_name,
+                        "description": description,
+                        "quantite": quantite if quantite is not None else 0,
+                        "prix_unitaire": prix_unitaire if prix_unitaire is not None else 0
+                    })
+
+                logger.info(f"Retrieved {len(lines)} devis lines for editor")
+                return lines
+
+        except Exception as e:
+            logger.error(f"Error retrieving devis lines for editor: {str(e)}")
+            raise
+
+    async def update_ligne_devis(self, ligne_id: str, quantite: int) -> None:
+        """
+        Met à jour la quantité d'une ligne de devis
+
+        Args:
+            ligne_id: ID de la ligne de devis
+            quantite: Nouvelle quantité
+        """
+        url = f"{self.base_url}/pages/{ligne_id}"
+
+        payload = {
+            "properties": {
+                "Quantité": {
+                    "number": quantite
+                }
+            }
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                logger.info(f"Updated ligne {ligne_id} with quantite={quantite}")
+
+        except Exception as e:
+            logger.error(f"Error updating ligne devis: {str(e)}")
+            raise
+
+    async def delete_ligne_devis(self, ligne_id: str) -> None:
+        """
+        Archive (supprime) une ligne de devis
+
+        Args:
+            ligne_id: ID de la ligne de devis
+        """
+        url = f"{self.base_url}/pages/{ligne_id}"
+
+        payload = {
+            "archived": True
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                logger.info(f"Deleted (archived) ligne {ligne_id}")
+
+        except Exception as e:
+            logger.error(f"Error deleting ligne devis: {str(e)}")
+            raise
+
+    async def create_ligne_devis_from_editor(
+        self,
+        prestation_id: str,
+        item_id: str,
+        quantite: int
+    ) -> str:
+        """
+        Crée une nouvelle ligne de devis depuis l'éditeur
+
+        Args:
+            prestation_id: ID de la prestation
+            item_id: ID de l'item du catalogue
+            quantite: Quantité
+
+        Returns:
+            ID de la ligne créée
+        """
+        # Récupérer le nom de l'item pour la description
+        item_data = await self._get_page(item_id)
+        if not item_data:
+            raise ValueError(f"Catalogue item {item_id} not found")
+
+        item_name = ""
+        if "Nom" in item_data["properties"]:
+            title_array = item_data["properties"]["Nom"].get("title", [])
+            if title_array:
+                item_name = title_array[0]["text"]["content"]
+
+        # Créer la ligne avec la description = nom de l'item
+        ligne_id = await self._create_ligne_devis(
+            prestation_id=prestation_id,
+            item_id=item_id,
+            quantite=quantite,
+            description=item_name
+        )
+
+        logger.info(f"Created ligne from editor: {item_name} x{quantite}")
+        return ligne_id

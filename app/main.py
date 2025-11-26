@@ -1,9 +1,11 @@
 # Fichier: app/main.py
 
 import os
+from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import timedelta
@@ -140,6 +142,14 @@ app.include_router(form_3916_router.router)
 app.include_router(deme_traiteur_router.router)
 app.include_router(chat_router.router, prefix="/api")
 app.include_router(recipes_router.router)  # Nouvelle API des recettes
+
+# Mount static files for DéMé Traiteur editor
+static_path = Path(__file__).parent / "packs" / "deme_traiteur" / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    log.info("static files mounted", path=str(static_path))
+else:
+    log.warning("static directory not found", path=str(static_path))
 
 @app.post("/users", response_model=schemas.User, status_code=status.HTTP_201_CREATED, tags=["Auth"])
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
