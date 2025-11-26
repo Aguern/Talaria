@@ -74,7 +74,7 @@ services:
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
-        value: 587
+        value: 465  # Port 465 with SSL (better for Render Free tier)
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD

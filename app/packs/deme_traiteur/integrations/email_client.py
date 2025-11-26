@@ -74,11 +74,18 @@ class EmailClient:
             msg.attach(part1)
             msg.attach(part2)
 
-            # Envoyer via SMTP
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()  # Sécuriser la connexion
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
+            # Envoyer via SMTP avec SSL ou STARTTLS selon le port
+            if self.smtp_port == 465:
+                # Port 465 : utiliser SMTP_SSL (connexion SSL directe)
+                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port) as server:
+                    server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
+            else:
+                # Port 587 : utiliser SMTP avec STARTTLS
+                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                    server.starttls()
+                    server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
 
             log.info("Email notification sent successfully via SMTP",
                     recipient=self.notification_email,
