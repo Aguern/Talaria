@@ -400,6 +400,8 @@
                 return;
             }
 
+            const saveBtn = document.querySelector('.btn-validate');
+
             try {
                 // Collecter toutes les lignes cochées avec quantité > 0
                 const lignes = [];
@@ -420,7 +422,10 @@
                     return;
                 }
 
-                showStatus('Sauvegarde en cours...', 'info');
+                // Désactiver le bouton pendant la sauvegarde
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Synchronisation en cours...';
+                showStatus('Synchronisation avec Notion en cours...', 'info');
 
                 const res = await fetch(`/api/packs/deme-traiteur/lignes/${prestationId}`, {
                     method: 'POST',
@@ -437,19 +442,35 @@
 
                 const result = await res.json();
 
+                // Afficher un message de succès détaillé
+                const details = [];
+                if (result.created > 0) details.push(`${result.created} ligne(s) créée(s)`);
+                if (result.updated > 0) details.push(`${result.updated} ligne(s) modifiée(s)`);
+                if (result.deleted > 0) details.push(`${result.deleted} ligne(s) supprimée(s)`);
+
+                const detailMessage = details.length > 0 ? details.join(', ') : 'Aucune modification';
+
                 showStatus(
-                    `Synchronisation réussie : ${result.message}`,
+                    `✓ Modifications enregistrées dans Notion avec succès\n${detailMessage}`,
                     'success'
                 );
+
+                // Réactiver le bouton
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Valider et synchroniser';
 
                 // Recharger les lignes pour synchroniser l'affichage
                 setTimeout(() => {
                     loadPrestationData();
-                }, 1500);
+                }, 2000);
 
             } catch (error) {
                 console.error('Erreur lors de la sauvegarde:', error);
-                showStatus(`Erreur : ${error.message}`, 'error');
+                showStatus(`✗ Erreur lors de la synchronisation avec Notion\n${error.message}`, 'error');
+
+                // Réactiver le bouton en cas d'erreur
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Valider et synchroniser';
             }
         }
 

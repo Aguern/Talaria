@@ -541,7 +541,7 @@ async def update_lignes_devis(prestation_id: str, update: LigneDevisBulkUpdate):
                 deleted += 1
                 log.info(f"Deleted ligne {existing_ligne['id']}")
 
-        message = f"✅ {created} créées, {updated} mises à jour, {deleted} supprimées"
+        message = f"{created} créées, {updated} mises à jour, {deleted} supprimées"
         log.info("Bulk update completed",
                 prestation_id=prestation_id,
                 created=created,

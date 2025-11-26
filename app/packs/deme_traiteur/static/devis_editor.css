@@ -177,6 +177,8 @@ header h1 {
     font-size: 0.875rem;
     font-weight: 500;
     border-left: 4px solid;
+    white-space: pre-line;
+    line-height: 1.6;
 }
 
 .status.hidden {
@@ -410,6 +412,17 @@ header h1 {
 
 .btn-validate:active {
     transform: translateY(1px);
+}
+
+.btn-validate:disabled {
+    background: #a0aec0;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn-validate:disabled:hover {
+    background: #a0aec0;
+    transform: none;
 }
 
 /* ============================================
