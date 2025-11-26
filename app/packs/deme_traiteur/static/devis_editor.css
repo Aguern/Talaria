@@ -1,5 +1,6 @@
 /* ============================================
    ÉDITEUR DE DEVIS - DéMé TRAITEUR
+   Design professionnel épuré
    ============================================ */
 
 /* Reset & Base */
@@ -11,18 +12,19 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #f5f7fa;
     min-height: 100vh;
     padding: 20px;
-    color: #333;
+    color: #2d3748;
+    line-height: 1.6;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     overflow: hidden;
 }
 
@@ -31,21 +33,23 @@ body {
    ============================================ */
 
 header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #2d3748;
     color: white;
-    padding: 40px 30px;
-    text-align: center;
+    padding: 32px 40px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-    font-weight: 700;
+    font-size: 1.75rem;
+    margin-bottom: 6px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
 }
 
 .subtitle {
-    font-size: 1.1rem;
-    opacity: 0.95;
+    font-size: 0.95rem;
+    opacity: 0.8;
+    font-weight: 400;
 }
 
 /* ============================================
@@ -53,121 +57,111 @@ header h1 {
    ============================================ */
 
 .prestation-selector {
-    padding: 30px;
-    background: #f8f9fa;
-    border-bottom: 2px solid #e9ecef;
+    padding: 32px 40px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.input-group {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.input-group label {
-    font-weight: 600;
-    color: #495057;
-    font-size: 1rem;
-}
-
-.input-group input[type="text"] {
-    flex: 1;
-    min-width: 300px;
-    padding: 12px 16px;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-}
-
-.input-group input[type="text"]:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.btn-load {
-    padding: 12px 24px;
-    background: #667eea;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.btn-load:hover {
-    background: #5568d3;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-load:active {
-    transform: translateY(0);
-}
-
-.help-text {
-    width: 100%;
-    margin-top: 10px;
-    font-size: 0.9rem;
-    color: #6c757d;
-    font-style: italic;
-}
-
-/* Mode selector */
 .mode-selector {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    overflow: hidden;
+    width: fit-content;
 }
 
 .mode-btn {
-    flex: 1;
-    padding: 12px 20px;
-    background: #e9ecef;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #495057;
+    padding: 10px 24px;
+    background: white;
+    border: none;
+    border-right: 1px solid #cbd5e0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #4a5568;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
+}
+
+.mode-btn:last-child {
+    border-right: none;
 }
 
 .mode-btn:hover {
-    background: #dee2e6;
+    background: #f7fafc;
 }
 
 .mode-btn.active {
-    background: #667eea;
+    background: #2d3748;
     color: white;
-    border-color: #5568d3;
 }
 
-/* Select dropdown */
-.input-group select {
-    flex: 1;
-    min-width: 300px;
-    padding: 12px 16px;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    font-size: 0.95rem;
+.input-group {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    align-items: center;
+    gap: 16px;
+}
+
+.input-group label {
     font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    color: #4a5568;
+    font-size: 0.875rem;
+    text-align: right;
+}
+
+.input-group input[type="text"],
+.input-group select {
+    padding: 10px 14px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #2d3748;
+    transition: all 0.15s ease;
     background: white;
 }
 
+.input-group input[type="text"]:focus,
 .input-group select:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
 }
 
-/* Hidden elements */
+.input-group select {
+    cursor: pointer;
+    font-weight: 400;
+}
+
+.btn-load {
+    padding: 10px 20px;
+    background: #2d3748;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-load:hover {
+    background: #1a202c;
+}
+
+.btn-load:active {
+    transform: translateY(1px);
+}
+
+.help-text {
+    margin-top: 12px;
+    font-size: 0.8125rem;
+    color: #718096;
+    line-height: 1.5;
+}
+
 .hidden {
     display: none !important;
 }
@@ -177,13 +171,12 @@ header h1 {
    ============================================ */
 
 .status {
-    margin: 20px 30px;
-    padding: 16px 20px;
-    border-radius: 8px;
+    margin: 24px 40px;
+    padding: 14px 18px;
+    border-radius: 4px;
+    font-size: 0.875rem;
     font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    border-left: 4px solid;
 }
 
 .status.hidden {
@@ -191,27 +184,27 @@ header h1 {
 }
 
 .status.info {
-    background: #d1ecf1;
-    color: #0c5460;
-    border-left: 4px solid #17a2b8;
+    background: #ebf8ff;
+    color: #2c5282;
+    border-left-color: #4299e1;
 }
 
 .status.success {
-    background: #d4edda;
-    color: #155724;
-    border-left: 4px solid #28a745;
+    background: #f0fff4;
+    color: #22543d;
+    border-left-color: #48bb78;
 }
 
 .status.warning {
-    background: #fff3cd;
-    color: #856404;
-    border-left: 4px solid #ffc107;
+    background: #fffaf0;
+    color: #7c2d12;
+    border-left-color: #ed8936;
 }
 
 .status.error {
-    background: #f8d7da;
-    color: #721c24;
-    border-left: 4px solid #dc3545;
+    background: #fff5f5;
+    color: #742a2a;
+    border-left-color: #f56565;
 }
 
 /* ============================================
@@ -219,7 +212,7 @@ header h1 {
    ============================================ */
 
 .catalogue-section {
-    padding: 30px;
+    padding: 32px 40px;
 }
 
 .catalogue-section.hidden {
@@ -227,14 +220,16 @@ header h1 {
 }
 
 .catalogue-section h2 {
-    font-size: 1.8rem;
-    color: #2c3e50;
-    margin-bottom: 10px;
+    font-size: 1.25rem;
+    color: #2d3748;
+    margin-bottom: 8px;
+    font-weight: 600;
 }
 
 .section-description {
-    color: #6c757d;
-    margin-bottom: 25px;
+    color: #718096;
+    margin-bottom: 28px;
+    font-size: 0.875rem;
     line-height: 1.6;
 }
 
@@ -244,31 +239,31 @@ header h1 {
 
 .filters {
     display: flex;
-    gap: 10px;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
 }
 
 .filter-btn {
-    padding: 10px 20px;
-    background: #e9ecef;
-    border: 2px solid transparent;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #495057;
+    padding: 8px 16px;
+    background: white;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #4a5568;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 
 .filter-btn:hover {
-    background: #dee2e6;
+    background: #f7fafc;
+    border-color: #a0aec0;
 }
 
 .filter-btn.active {
-    background: #667eea;
+    background: #2d3748;
     color: white;
-    border-color: #5568d3;
+    border-color: #2d3748;
 }
 
 /* ============================================
@@ -276,37 +271,37 @@ header h1 {
    ============================================ */
 
 .catalogue-list {
-    background: #f8f9fa;
-    border-radius: 12px;
-    padding: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 0;
     max-height: 600px;
     overflow-y: auto;
 }
 
 .empty-message {
     text-align: center;
-    color: #6c757d;
-    padding: 40px;
-    font-size: 1.1rem;
+    color: #a0aec0;
+    padding: 48px;
+    font-size: 0.9rem;
 }
 
 .group-header {
-    background: #667eea;
-    color: white;
-    padding: 12px 16px;
-    margin: 20px -20px 15px;
+    background: #edf2f7;
+    color: #2d3748;
+    padding: 10px 20px;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e2e8f0;
     position: sticky;
     top: 0;
     z-index: 10;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.group-header:first-child {
-    margin-top: -20px;
 }
 
 .group-header h3 {
-    font-size: 1.1rem;
+    font-size: 0.8125rem;
     font-weight: 600;
 }
 
@@ -314,75 +309,76 @@ header h1 {
     display: grid;
     grid-template-columns: 40px 1fr 100px 100px;
     align-items: center;
-    gap: 15px;
-    padding: 16px;
+    gap: 16px;
+    padding: 14px 20px;
     background: white;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    transition: all 0.2s ease;
-    border: 2px solid transparent;
+    border-bottom: 1px solid #e2e8f0;
+    transition: background 0.1s ease;
 }
 
 .product-item:hover {
-    border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-    transform: translateX(4px);
+    background: #f7fafc;
+}
+
+.product-item:last-child {
+    border-bottom: none;
 }
 
 .product-item input[type="checkbox"] {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     cursor: pointer;
-    accent-color: #667eea;
+    accent-color: #2d3748;
 }
 
 .product-name {
     font-weight: 500;
-    color: #2c3e50;
-    font-size: 0.95rem;
+    color: #2d3748;
+    font-size: 0.875rem;
 }
 
 .product-price {
-    font-weight: 700;
-    color: #28a745;
-    font-size: 1rem;
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 0.875rem;
     text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .quantity {
-    width: 80px;
-    padding: 8px 12px;
-    border: 2px solid #dee2e6;
-    border-radius: 6px;
-    font-size: 1rem;
+    width: 70px;
+    padding: 7px 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.875rem;
     text-align: center;
-    font-weight: 600;
-    transition: all 0.3s ease;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    font-variant-numeric: tabular-nums;
 }
 
 .quantity:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
 }
 
 /* Scrollbar personnalisée */
 .catalogue-list::-webkit-scrollbar {
-    width: 10px;
+    width: 8px;
 }
 
 .catalogue-list::-webkit-scrollbar-track {
-    background: #e9ecef;
-    border-radius: 10px;
+    background: #edf2f7;
 }
 
 .catalogue-list::-webkit-scrollbar-thumb {
-    background: #667eea;
-    border-radius: 10px;
+    background: #cbd5e0;
+    border-radius: 4px;
 }
 
 .catalogue-list::-webkit-scrollbar-thumb:hover {
-    background: #5568d3;
+    background: #a0aec0;
 }
 
 /* ============================================
@@ -390,32 +386,30 @@ header h1 {
    ============================================ */
 
 .validation-section {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 2px solid #e9ecef;
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid #e2e8f0;
 }
 
 .btn-validate {
     width: 100%;
-    padding: 18px;
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    padding: 14px;
+    background: #2d3748;
     color: white;
     border: none;
-    border-radius: 10px;
-    font-size: 1.2rem;
-    font-weight: 700;
+    border-radius: 4px;
+    font-size: 0.9375rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    transition: all 0.15s ease;
 }
 
 .btn-validate:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+    background: #1a202c;
 }
 
 .btn-validate:active {
-    transform: translateY(-1px);
+    transform: translateY(1px);
 }
 
 /* ============================================
@@ -423,61 +417,88 @@ header h1 {
    ============================================ */
 
 @media (max-width: 768px) {
-    header h1 {
-        font-size: 1.8rem;
+    body {
+        padding: 0;
     }
 
-    .subtitle {
-        font-size: 0.95rem;
+    .container {
+        border-radius: 0;
+    }
+
+    header {
+        padding: 24px 20px;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .prestation-selector,
+    .catalogue-section {
+        padding: 24px 20px;
+    }
+
+    .status {
+        margin: 20px 20px;
+    }
+
+    .input-group {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .input-group label {
+        text-align: left;
+    }
+
+    .mode-selector {
+        width: 100%;
+    }
+
+    .mode-btn {
+        flex: 1;
     }
 
     .product-item {
         grid-template-columns: 30px 1fr;
-        gap: 10px;
+        gap: 12px;
     }
 
     .product-price,
     .quantity {
         grid-column: 2;
+        text-align: left;
     }
 
-    .input-group {
-        flex-direction: column;
-        align-items: stretch;
+    .product-price {
+        margin-bottom: 8px;
     }
 
-    .input-group input[type="text"] {
-        min-width: 100%;
-    }
-
-    .btn-load {
-        width: 100%;
-    }
-
-    .filters {
-        justify-content: center;
+    .catalogue-list {
+        max-height: 500px;
     }
 }
 
 @media (max-width: 480px) {
-    body {
-        padding: 10px;
+    header h1 {
+        font-size: 1.25rem;
     }
 
-    .container {
-        border-radius: 12px;
-    }
-
-    header {
-        padding: 25px 20px;
+    .subtitle {
+        font-size: 0.875rem;
     }
 
     .prestation-selector,
     .catalogue-section {
-        padding: 20px;
+        padding: 20px 16px;
     }
 
-    .catalogue-list {
-        max-height: 400px;
+    .filters {
+        flex-wrap: wrap;
+    }
+
+    .filter-btn {
+        flex: 1 0 auto;
+        min-width: 100px;
     }
 }
