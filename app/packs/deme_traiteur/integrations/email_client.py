@@ -1,68 +1,35 @@
 # Fichier: app/packs/deme_traiteur/integrations/email_client.py
 
 import os
-import base64
+import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any
 import structlog
-
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 
 log = structlog.get_logger()
 
 
 class EmailClient:
     """
-    Client Gmail API pour envoyer des notifications email à DéMé.
-    Utilise token.json pour l'authentification OAuth2.
+    Client SMTP pour envoyer des notifications email à DéMé.
+    Utilise SMTP standard avec App Password Gmail.
     """
 
     def __init__(self):
         self.notification_email = os.getenv("DEME_NOTIFICATION_EMAIL", "demo.nouvellerive@gmail.com")
-        self.gmail_service = None
+        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_user = os.getenv("SMTP_USER", "assistant.nouvellerive@gmail.com")
+        self.smtp_password = os.getenv("SMTP_PASSWORD")
 
-        # Initialize Gmail API with auto-refresh from environment variable
-        try:
-            import json
-            token_json = os.getenv("GOOGLE_TOKEN_JSON")
-
-            if not token_json:
-                # Fallback to token.json file if env var not set (for local dev)
-                token_path = "token.json"
-                if not os.path.exists(token_path):
-                    log.error("GOOGLE_TOKEN_JSON env var not set and token.json not found")
-                    return
-
-                with open(token_path, 'r') as f:
-                    token_data = json.load(f)
-            else:
-                token_data = json.loads(token_json)
-
-            # Create credentials from token data
-            creds = Credentials(
-                token=token_data.get("token"),
-                refresh_token=token_data.get("refresh_token"),
-                token_uri=token_data.get("token_uri"),
-                client_id=token_data.get("client_id"),
-                client_secret=token_data.get("client_secret"),
-                scopes=token_data.get("scopes")
-            )
-
-            # Always refresh token at startup to ensure validity
-            # This avoids expiration issues on Render where filesystem is not persistent
-            if creds.refresh_token:
-                from google.auth.transport.requests import Request
-                creds.refresh(Request())
-                log.info("Gmail token refreshed successfully at startup")
-            else:
-                log.warning("No refresh_token available, using existing token (may expire)")
-
-            self.gmail_service = build('gmail', 'v1', credentials=creds)
-            log.info("Gmail API initialized successfully")
-        except Exception as e:
-            log.error("Failed to initialize Gmail API", error=str(e))
+        if not self.smtp_password:
+            log.error("SMTP_PASSWORD not configured")
+        else:
+            log.info("SMTP client initialized",
+                    host=self.smtp_host,
+                    port=self.smtp_port,
+                    user=self.smtp_user)
 
     async def send_prestation_notification(
         self,
@@ -81,18 +48,18 @@ class EmailClient:
         Returns:
             Dict avec le statut de l'envoi
         """
-        if not self.gmail_service:
-            log.warning("Cannot send email: Gmail API not initialized")
+        if not self.smtp_password:
+            log.warning("Cannot send email: SMTP_PASSWORD not configured")
             return {
                 "success": False,
-                "message": "Gmail API not initialized"
+                "message": "SMTP_PASSWORD not configured"
             }
 
         try:
             # Créer le message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = f"📋 Nouvelle demande de prestation - {client_data.get('nom_complet', 'Client')}"
-            msg['From'] = 'assistant.nouvellerive@gmail.com'
+            msg['From'] = self.smtp_user
             msg['To'] = self.notification_email
 
             # Créer le contenu HTML
@@ -107,23 +74,21 @@ class EmailClient:
             msg.attach(part1)
             msg.attach(part2)
 
-            # Envoyer via Gmail API
-            raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
-            send_result = self.gmail_service.users().messages().send(
-                userId='me',
-                body={'raw': raw_message}
-            ).execute()
+            # Envoyer via SMTP
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()  # Sécuriser la connexion
+                server.login(self.smtp_user, self.smtp_password)
+                server.send_message(msg)
 
-            log.info("Email notification sent successfully via Gmail API",
+            log.info("Email notification sent successfully via SMTP",
                     recipient=self.notification_email,
                     client=client_data.get('nom_complet'),
-                    message_id=send_result.get('id'))
+                    smtp_host=self.smtp_host)
 
             return {
                 "success": True,
                 "message": "Email sent successfully",
-                "recipient": self.notification_email,
-                "message_id": send_result.get('id')
+                "recipient": self.notification_email
             }
 
         except Exception as e:

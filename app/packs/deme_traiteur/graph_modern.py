@@ -301,11 +301,14 @@ async def create_calendar_event(state: DemeTraiteurState) -> DemeTraiteurState:
             "ville": state.get("ville", "")
         }
 
+        # Use devis_sheet_link if available, otherwise indicate N/A
+        devis_sheet_link = state.get("devis_sheet_link", "") or "N/A (GSheet skipped)"
+
         result = await calendar.create_event_from_prestation(
             prestation_data=prestation_data,
             prestation_url=state["prestation_url"],
             client_data=client_data,
-            devis_sheet_link=state["devis_sheet_link"]
+            devis_sheet_link=devis_sheet_link
         )
 
         state["calendar_event_id"] = result["id"]
@@ -328,8 +331,10 @@ async def copy_sheet_template(state: DemeTraiteurState) -> DemeTraiteurState:
     This uses a hybrid approach:
     1. Try to get a pre-created template from pool (fast)
     2. If pool is empty, copy the master template with retry logic
+
+    NOTE: This step is OPTIONAL - if it fails, workflow continues without GSheet
     """
-    logger.info("Step 5: Getting Google Sheet template")
+    logger.info("Step 5: Getting Google Sheet template (OPTIONAL)")
     state["current_step"] = "copy_sheet_template"
 
     sheets = GoogleSheetsClient()
@@ -347,17 +352,26 @@ async def copy_sheet_template(state: DemeTraiteurState) -> DemeTraiteurState:
 
     except Exception as e:
         error_msg = f"Error getting sheet template: {str(e)}"
-        logger.error(error_msg)
+        logger.warning(error_msg + " - Continuing workflow without GSheet")
         state["errors"].append(error_msg)
-        raise
+        state["devis_sheet_id"] = ""  # Mark as skipped
+        return state  # Continue workflow instead of raising
 
 
 async def rename_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
     """
     Rename the copied Google Sheet
+
+    NOTE: This step is OPTIONAL - skipped if copy_sheet_template failed
     """
-    logger.info("Step 6: Renaming Google Sheet")
+    logger.info("Step 6: Renaming Google Sheet (OPTIONAL)")
     state["current_step"] = "rename_sheet"
+
+    # Skip if no sheet was created
+    if not state.get("devis_sheet_id"):
+        logger.warning("Skipping rename_sheet - no sheet ID available")
+        state["devis_sheet_link"] = ""
+        return state
 
     sheets = GoogleSheetsClient()
 
@@ -373,17 +387,25 @@ async def rename_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
 
     except Exception as e:
         error_msg = f"Error renaming sheet: {str(e)}"
-        logger.error(error_msg)
+        logger.warning(error_msg + " - Continuing workflow without GSheet")
         state["errors"].append(error_msg)
-        raise
+        state["devis_sheet_link"] = ""
+        return state  # Continue workflow instead of raising
 
 
 async def fill_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
     """
     Fill the Google Sheet with data from Notion (two-tab system: DATA + DEVIS)
+
+    NOTE: This step is OPTIONAL - skipped if rename_sheet failed
     """
-    logger.info("Step 7: Filling Google Sheet with data")
+    logger.info("Step 7: Filling Google Sheet with data (OPTIONAL)")
     state["current_step"] = "fill_sheet"
+
+    # Skip if no sheet was created or renamed
+    if not state.get("devis_sheet_id") or not state.get("devis_sheet_link"):
+        logger.warning("Skipping fill_sheet - no sheet available")
+        return state
 
     sheets = GoogleSheetsClient()
     notion = NotionClient()
@@ -448,9 +470,9 @@ async def fill_sheet(state: DemeTraiteurState) -> DemeTraiteurState:
 
     except Exception as e:
         error_msg = f"Error filling sheet: {str(e)}"
-        logger.error(error_msg)
+        logger.warning(error_msg + " - Continuing workflow without GSheet")
         state["errors"].append(error_msg)
-        raise
+        return state  # Continue workflow instead of raising
 
 
 async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState:
@@ -482,10 +504,10 @@ async def send_email_notification(state: DemeTraiteurState) -> DemeTraiteurState
             "message": state.get("message", "")
         }
 
-        # Prepare links
+        # Prepare links (use empty string or N/A if GSheet was skipped)
         links = {
             "notion_url": state["prestation_url"],
-            "sheet_url": state["devis_sheet_link"],
+            "sheet_url": state.get("devis_sheet_link", "") or "N/A (GSheet skipped)",
             "calendar_url": state.get("calendar_event_link", "")
         }
 
