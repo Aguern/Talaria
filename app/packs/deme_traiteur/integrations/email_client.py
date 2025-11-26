@@ -1,9 +1,7 @@
 # Fichier: app/packs/deme_traiteur/integrations/email_client.py
 
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 from typing import Dict, Any
 import structlog
 
@@ -12,24 +10,22 @@ log = structlog.get_logger()
 
 class EmailClient:
     """
-    Client SMTP pour envoyer des notifications email à DéMé.
-    Utilise SMTP standard avec App Password Gmail.
+    Client Brevo API pour envoyer des notifications email à DéMé.
+    Utilise l'API HTTP de Brevo (pas de SMTP bloqué par Render).
     """
 
     def __init__(self):
         self.notification_email = os.getenv("DEME_NOTIFICATION_EMAIL", "demo.nouvellerive@gmail.com")
-        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = os.getenv("SMTP_USER", "assistant.nouvellerive@gmail.com")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
+        self.brevo_api_key = os.getenv("BREVO_API_KEY")
+        self.sender_email = os.getenv("BREVO_SENDER_EMAIL", "assistant.nouvellerive@gmail.com")
+        self.sender_name = os.getenv("BREVO_SENDER_NAME", "DéMé Assistant")
 
-        if not self.smtp_password:
-            log.error("SMTP_PASSWORD not configured")
+        if not self.brevo_api_key:
+            log.error("BREVO_API_KEY not configured")
         else:
-            log.info("SMTP client initialized",
-                    host=self.smtp_host,
-                    port=self.smtp_port,
-                    user=self.smtp_user)
+            log.info("Brevo email client initialized",
+                    sender=self.sender_email,
+                    recipient=self.notification_email)
 
     async def send_prestation_notification(
         self,
@@ -48,56 +44,71 @@ class EmailClient:
         Returns:
             Dict avec le statut de l'envoi
         """
-        if not self.smtp_password:
-            log.warning("Cannot send email: SMTP_PASSWORD not configured")
+        if not self.brevo_api_key:
+            log.warning("Cannot send email: BREVO_API_KEY not configured")
             return {
                 "success": False,
-                "message": "SMTP_PASSWORD not configured"
+                "message": "BREVO_API_KEY not configured"
             }
 
         try:
-            # Créer le message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = f"📋 Nouvelle demande de prestation - {client_data.get('nom_complet', 'Client')}"
-            msg['From'] = self.smtp_user
-            msg['To'] = self.notification_email
-
             # Créer le contenu HTML
             html_content = self._build_email_html(client_data, prestation_data, links)
 
             # Créer le contenu texte (fallback)
             text_content = self._build_email_text(client_data, prestation_data, links)
 
-            # Attacher les deux versions
-            part1 = MIMEText(text_content, 'plain', 'utf-8')
-            part2 = MIMEText(html_content, 'html', 'utf-8')
-            msg.attach(part1)
-            msg.attach(part2)
+            # Préparer le payload pour l'API Brevo
+            payload = {
+                "sender": {
+                    "name": self.sender_name,
+                    "email": self.sender_email
+                },
+                "to": [
+                    {
+                        "email": self.notification_email,
+                        "name": "DéMé"
+                    }
+                ],
+                "subject": f"📋 Nouvelle demande de prestation - {client_data.get('nom_complet', 'Client')}",
+                "htmlContent": html_content,
+                "textContent": text_content
+            }
 
-            # Envoyer via SMTP avec SSL ou STARTTLS selon le port
-            if self.smtp_port == 465:
-                # Port 465 : utiliser SMTP_SSL (connexion SSL directe)
-                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port) as server:
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.send_message(msg)
-            else:
-                # Port 587 : utiliser SMTP avec STARTTLS
-                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.send_message(msg)
+            # Envoyer via l'API Brevo
+            headers = {
+                "api-key": self.brevo_api_key,
+                "Content-Type": "application/json"
+            }
 
-            log.info("Email notification sent successfully via SMTP",
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    headers=headers,
+                    json=payload
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            log.info("Email notification sent successfully via Brevo API",
                     recipient=self.notification_email,
                     client=client_data.get('nom_complet'),
-                    smtp_host=self.smtp_host)
+                    message_id=result.get('messageId'))
 
             return {
                 "success": True,
                 "message": "Email sent successfully",
-                "recipient": self.notification_email
+                "recipient": self.notification_email,
+                "message_id": result.get('messageId')
             }
 
+        except httpx.HTTPStatusError as e:
+            error_msg = f"Brevo API error (HTTP {e.response.status_code}): {e.response.text}"
+            log.error("Failed to send email notification", error=error_msg)
+            return {
+                "success": False,
+                "message": error_msg
+            }
         except Exception as e:
             log.error("Failed to send email notification", error=str(e))
             return {
