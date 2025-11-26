@@ -88,9 +88,30 @@
 
             <!-- Bouton validation -->
             <div class="validation-section">
-                <button class="btn-validate" onclick="saveDevis()">
+                <button class="btn-validate" onclick="openConfirmationModal()">
                     Valider et synchroniser
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmation -->
+    <div id="confirmation-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeConfirmationModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirmer la synchronisation</h2>
+                <button class="modal-close" onclick="closeConfirmationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-intro">Vous êtes sur le point de synchroniser les modifications suivantes avec Notion :</p>
+                <div id="modal-summary" class="modal-summary">
+                    <!-- Généré dynamiquement par JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeConfirmationModal()">Annuler</button>
+                <button class="btn-confirm" onclick="confirmSave()">Confirmer la synchronisation</button>
             </div>
         </div>
     </div>
@@ -335,6 +356,9 @@
         function filterByType(type) {
             currentFilter = type;
 
+            // Sauvegarder l'état actuel avant de re-rendre
+            const currentState = saveCurrentState();
+
             // Mettre à jour les boutons actifs
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -346,8 +370,42 @@
             // Re-rendre le catalogue
             renderCatalogue();
 
-            // Re-appliquer les quantités
-            updateQuantities();
+            // Restaurer l'état sauvegardé
+            restoreState(currentState);
+        }
+
+        // ============================================
+        // SAUVEGARDE ET RESTAURATION DE L'ÉTAT
+        // ============================================
+
+        function saveCurrentState() {
+            const state = {};
+            document.querySelectorAll('.product-item').forEach(item => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                const quantityInput = item.querySelector('input[type="number"]');
+                if (checkbox && quantityInput) {
+                    const itemId = checkbox.dataset.itemId;
+                    state[itemId] = {
+                        checked: checkbox.checked,
+                        quantity: parseInt(quantityInput.value)
+                    };
+                }
+            });
+            return state;
+        }
+
+        function restoreState(state) {
+            document.querySelectorAll('.product-item').forEach(item => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                const quantityInput = item.querySelector('input[type="number"]');
+                if (checkbox && quantityInput) {
+                    const itemId = checkbox.dataset.itemId;
+                    if (state[itemId]) {
+                        checkbox.checked = state[itemId].checked;
+                        quantityInput.value = state[itemId].quantity;
+                    }
+                }
+            });
         }
 
         // ============================================
@@ -391,14 +449,129 @@
         }
 
         // ============================================
-        // SAUVEGARDE DES MODIFICATIONS
+        // MODAL DE CONFIRMATION
         // ============================================
 
-        async function saveDevis() {
+        function openConfirmationModal() {
             if (!prestationId) {
                 showStatus('Aucune prestation chargée', 'warning');
                 return;
             }
+
+            // Collecter toutes les lignes cochées avec quantité > 0
+            const lignes = [];
+            const lignesGroupedByType = {};
+
+            document.querySelectorAll('.product-item').forEach(item => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                const quantityInput = item.querySelector('input[type="number"]');
+
+                if (checkbox.checked && parseInt(quantityInput.value) > 0) {
+                    const itemId = checkbox.dataset.itemId;
+                    const catalogueItem = catalogue.find(c => c.id === itemId);
+
+                    if (catalogueItem) {
+                        const ligne = {
+                            item_id: itemId,
+                            quantite: parseInt(quantityInput.value),
+                            nom: catalogueItem.nom,
+                            prix: catalogueItem.prix,
+                            type: catalogueItem.type
+                        };
+
+                        lignes.push(ligne);
+
+                        // Grouper par type
+                        if (!lignesGroupedByType[catalogueItem.type]) {
+                            lignesGroupedByType[catalogueItem.type] = [];
+                        }
+                        lignesGroupedByType[catalogueItem.type].push(ligne);
+                    }
+                }
+            });
+
+            if (lignes.length === 0) {
+                showStatus('Aucune ligne à sauvegarder (sélectionnez au moins un produit)', 'warning');
+                return;
+            }
+
+            // Générer le contenu de la modal
+            const modalSummary = document.getElementById('modal-summary');
+            modalSummary.innerHTML = '';
+
+            // Afficher le total général
+            const totalItems = lignes.length;
+            const totalQuantity = lignes.reduce((sum, ligne) => sum + ligne.quantite, 0);
+            const totalPrice = lignes.reduce((sum, ligne) => sum + (ligne.quantite * ligne.prix), 0);
+
+            const summaryHeader = document.createElement('div');
+            summaryHeader.className = 'summary-header';
+            summaryHeader.innerHTML = `
+                <div class="summary-stat">
+                    <span class="stat-label">Articles différents :</span>
+                    <span class="stat-value">${totalItems}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="stat-label">Quantité totale :</span>
+                    <span class="stat-value">${totalQuantity}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="stat-label">Montant total :</span>
+                    <span class="stat-value">${totalPrice.toFixed(2)}€</span>
+                </div>
+            `;
+            modalSummary.appendChild(summaryHeader);
+
+            // Afficher par type
+            Object.keys(lignesGroupedByType).sort().forEach(type => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'summary-group';
+
+                const groupHeader = document.createElement('h3');
+                groupHeader.className = 'summary-group-title';
+                groupHeader.textContent = type;
+                groupDiv.appendChild(groupHeader);
+
+                const itemsList = document.createElement('div');
+                itemsList.className = 'summary-items';
+
+                lignesGroupedByType[type].forEach(ligne => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'summary-item';
+                    itemDiv.innerHTML = `
+                        <span class="summary-item-name">${ligne.nom}</span>
+                        <span class="summary-item-qty">Qté: ${ligne.quantite}</span>
+                        <span class="summary-item-price">${(ligne.quantite * ligne.prix).toFixed(2)}€</span>
+                    `;
+                    itemsList.appendChild(itemDiv);
+                });
+
+                groupDiv.appendChild(itemsList);
+                modalSummary.appendChild(groupDiv);
+            });
+
+            // Ouvrir la modal
+            document.getElementById('confirmation-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeConfirmationModal() {
+            document.getElementById('confirmation-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // ============================================
+        // SAUVEGARDE DES MODIFICATIONS
+        // ============================================
+
+        async function confirmSave() {
+            if (!prestationId) {
+                showStatus('Aucune prestation chargée', 'warning');
+                return;
+            }
+
+            // Fermer la modal
+            closeConfirmationModal();
 
             const saveBtn = document.querySelector('.btn-validate');
 
