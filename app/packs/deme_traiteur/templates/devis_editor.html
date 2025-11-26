@@ -124,6 +124,7 @@
         let currentFilter = 'all';
         let prestationsActives = [];
         let currentMode = 'dropdown'; // 'dropdown' ou 'manual'
+        let userSelections = {}; // État global des sélections utilisateur
 
         // ============================================
         // GESTION DES MODES DE SÉLECTION
@@ -268,11 +269,11 @@
                 // Afficher la section catalogue
                 document.getElementById('catalogue-section').classList.remove('hidden');
 
-                // Rendre le catalogue avec les données
-                renderCatalogue();
-
-                // Mettre à jour les quantités depuis les lignes existantes
+                // Mettre à jour les quantités depuis les lignes existantes (initialise userSelections)
                 updateQuantities();
+
+                // Rendre le catalogue avec les données (applique userSelections)
+                renderCatalogue();
 
                 showStatus(`Prestation chargée : ${lignesExistantes.length} ligne(s) de devis`, 'success');
 
@@ -347,6 +348,9 @@
                     container.appendChild(productDiv);
                 });
             });
+
+            // Appliquer les sélections utilisateur après le rendu
+            applyUserSelections();
         }
 
         // ============================================
@@ -356,9 +360,6 @@
         function filterByType(type) {
             currentFilter = type;
 
-            // Sauvegarder l'état actuel avant de re-rendre
-            const currentState = saveCurrentState();
-
             // Mettre à jour les boutons actifs
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -367,45 +368,8 @@
                 }
             });
 
-            // Re-rendre le catalogue
+            // Re-rendre le catalogue (qui appliquera automatiquement les sélections)
             renderCatalogue();
-
-            // Restaurer l'état sauvegardé
-            restoreState(currentState);
-        }
-
-        // ============================================
-        // SAUVEGARDE ET RESTAURATION DE L'ÉTAT
-        // ============================================
-
-        function saveCurrentState() {
-            const state = {};
-            document.querySelectorAll('.product-item').forEach(item => {
-                const checkbox = item.querySelector('input[type="checkbox"]');
-                const quantityInput = item.querySelector('input[type="number"]');
-                if (checkbox && quantityInput) {
-                    const itemId = checkbox.dataset.itemId;
-                    state[itemId] = {
-                        checked: checkbox.checked,
-                        quantity: parseInt(quantityInput.value)
-                    };
-                }
-            });
-            return state;
-        }
-
-        function restoreState(state) {
-            document.querySelectorAll('.product-item').forEach(item => {
-                const checkbox = item.querySelector('input[type="checkbox"]');
-                const quantityInput = item.querySelector('input[type="number"]');
-                if (checkbox && quantityInput) {
-                    const itemId = checkbox.dataset.itemId;
-                    if (state[itemId]) {
-                        checkbox.checked = state[itemId].checked;
-                        quantityInput.value = state[itemId].quantity;
-                    }
-                }
-            });
         }
 
         // ============================================
@@ -421,6 +385,12 @@
             } else if (!checkbox.checked) {
                 quantityInput.value = 0;
             }
+
+            // Mettre à jour l'état global
+            userSelections[itemId] = {
+                checked: checkbox.checked,
+                quantity: parseInt(quantityInput.value)
+            };
         }
 
         function updateCheckbox(itemId) {
@@ -428,6 +398,12 @@
             const quantityInput = document.querySelector(`input[type="number"][data-item-id="${itemId}"]`);
 
             checkbox.checked = parseInt(quantityInput.value) > 0;
+
+            // Mettre à jour l'état global
+            userSelections[itemId] = {
+                checked: checkbox.checked,
+                quantity: parseInt(quantityInput.value)
+            };
         }
 
         // ============================================
@@ -435,15 +411,26 @@
         // ============================================
 
         function updateQuantities() {
+            // Initialiser userSelections avec les données de Notion
+            userSelections = {};
             lignesExistantes.forEach(ligne => {
                 if (!ligne.item_id) return;
+                userSelections[ligne.item_id] = {
+                    checked: true,
+                    quantity: ligne.quantite
+                };
+            });
+        }
 
-                const checkbox = document.querySelector(`input[type="checkbox"][data-item-id="${ligne.item_id}"]`);
-                const quantityInput = document.querySelector(`input[type="number"][data-item-id="${ligne.item_id}"]`);
+        function applyUserSelections() {
+            Object.keys(userSelections).forEach(itemId => {
+                const selection = userSelections[itemId];
+                const checkbox = document.querySelector(`input[type="checkbox"][data-item-id="${itemId}"]`);
+                const quantityInput = document.querySelector(`input[type="number"][data-item-id="${itemId}"]`);
 
                 if (checkbox && quantityInput) {
-                    checkbox.checked = true;
-                    quantityInput.value = ligne.quantite;
+                    checkbox.checked = selection.checked;
+                    quantityInput.value = selection.quantity;
                 }
             });
         }
