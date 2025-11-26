@@ -1059,3 +1059,108 @@ class NotionClient:
 
         logger.info(f"Created ligne from editor: {item_name} x{quantite}")
         return ligne_id
+
+    async def get_active_prestations(self) -> List[Dict[str, Any]]:
+        """
+        Récupère les prestations actives (statut "A confirmer" ou "Confirmée", date future/aujourd'hui)
+
+        Returns:
+            Liste des prestations avec: id, nom_prestation, date, statut, client_name, pax
+        """
+        from datetime import datetime
+
+        url = f"{self.base_url}/databases/{self.prestations_db_id}/query"
+
+        # Obtenir la date d'aujourd'hui au format ISO
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        payload = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "Date",
+                        "date": {
+                            "on_or_after": today
+                        }
+                    },
+                    {
+                        "or": [
+                            {
+                                "property": "Statut",
+                                "select": {
+                                    "equals": "A confirmer"
+                                }
+                            },
+                            {
+                                "property": "Statut",
+                                "select": {
+                                    "equals": "Confirmée"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "sorts": [
+                {
+                    "property": "Date",
+                    "direction": "ascending"
+                }
+            ]
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                prestations = []
+                for page in data.get("results", []):
+                    props = page.get("properties", {})
+
+                    # Extract nom prestation
+                    nom_prestation = ""
+                    if "Nom prestation" in props:
+                        title_array = props["Nom prestation"].get("title", [])
+                        if title_array:
+                            nom_prestation = title_array[0]["text"]["content"]
+
+                    # Extract date
+                    date_str = ""
+                    if "Date" in props and props["Date"].get("date"):
+                        date_str = props["Date"]["date"].get("start", "")
+
+                    # Extract statut
+                    statut = ""
+                    if "Statut" in props and props["Statut"].get("select"):
+                        statut = props["Statut"]["select"].get("name", "")
+
+                    # Extract PAX
+                    pax = props.get("PAX", {}).get("number", 0)
+
+                    # Extract client name from relation
+                    client_name = ""
+                    if "Client" in props and props["Client"].get("relation"):
+                        client_id = props["Client"]["relation"][0]["id"]
+                        client_data = await self._get_page(client_id)
+                        if client_data and "Nom complet" in client_data["properties"]:
+                            title_array = client_data["properties"]["Nom complet"].get("title", [])
+                            if title_array:
+                                client_name = title_array[0]["text"]["content"]
+
+                    prestations.append({
+                        "id": page["id"],
+                        "nom_prestation": nom_prestation,
+                        "date": date_str,
+                        "statut": statut,
+                        "client_name": client_name,
+                        "pax": pax if pax is not None else 0
+                    })
+
+                logger.info(f"Retrieved {len(prestations)} active prestations")
+                return prestations
+
+        except Exception as e:
+            logger.error(f"Error retrieving active prestations: {str(e)}")
+            raise

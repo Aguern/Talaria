@@ -120,6 +120,16 @@ class LigneDevisBulkUpdateResponse(BaseModel):
     message: str
 
 
+class PrestationActive(BaseModel):
+    """Prestation active pour l'éditeur"""
+    id: str
+    nom_prestation: str
+    date: str
+    statut: str
+    client_name: str
+    pax: int
+
+
 async def run_workflow_direct(data: dict):
     """
     Execute the workflow directly in background (no Celery).
@@ -386,6 +396,31 @@ async def devis_editor():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors du chargement de l'éditeur: {str(e)}"
+        )
+
+
+@router.get("/prestations/actives", response_model=List[PrestationActive])
+async def get_active_prestations():
+    """
+    Récupère les prestations actives (statut "A confirmer" ou "Confirmée", date >= aujourd'hui)
+
+    Returns:
+        Liste des prestations triées par date croissante
+    """
+    try:
+        from .integrations.notion_client import NotionClient
+
+        notion = NotionClient()
+        prestations = await notion.get_active_prestations()
+
+        log.info(f"Retrieved {len(prestations)} active prestations")
+        return prestations
+
+    except Exception as e:
+        log.error("Error fetching active prestations", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la récupération des prestations actives: {str(e)}"
         )
 
 

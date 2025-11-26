@@ -15,7 +15,31 @@
 
         <!-- Sélecteur de prestation -->
         <div class="prestation-selector">
-            <div class="input-group">
+            <!-- Mode de sélection -->
+            <div class="mode-selector">
+                <button onclick="switchMode('dropdown')" class="mode-btn active" data-mode="dropdown">
+                    📋 Prestations actives
+                </button>
+                <button onclick="switchMode('manual')" class="mode-btn" data-mode="manual">
+                    ✏️ Saisie manuelle ID
+                </button>
+            </div>
+
+            <!-- Liste déroulante (par défaut) -->
+            <div id="dropdown-mode" class="input-group">
+                <label for="prestation-select">Sélectionnez une prestation :</label>
+                <select
+                    id="prestation-select"
+                    aria-label="Sélectionner une prestation"
+                    onchange="loadPrestationFromDropdown()"
+                >
+                    <option value="">-- Chargement... --</option>
+                </select>
+                <button onclick="loadPrestationFromDropdown()" class="btn-load">📥 Charger</button>
+            </div>
+
+            <!-- Saisie manuelle (cachée par défaut) -->
+            <div id="manual-mode" class="input-group hidden">
                 <label for="prestation-id">ID de la Prestation :</label>
                 <input
                     type="text"
@@ -25,8 +49,12 @@
                 >
                 <button onclick="loadPrestation()" class="btn-load">📥 Charger</button>
             </div>
-            <p class="help-text">
-                💡 Astuce : Copiez l'ID depuis l'URL de la page Notion de la prestation
+
+            <p class="help-text" id="help-dropdown">
+                💡 Prestations "A confirmer" ou "Confirmée" avec date >= aujourd'hui
+            </p>
+            <p class="help-text hidden" id="help-manual">
+                💡 Copiez l'ID depuis l'URL de la page Notion de la prestation
             </p>
         </div>
 
@@ -74,6 +102,91 @@
         let lignesExistantes = [];
         let prestationId = null;
         let currentFilter = 'all';
+        let prestationsActives = [];
+        let currentMode = 'dropdown'; // 'dropdown' ou 'manual'
+
+        // ============================================
+        // GESTION DES MODES DE SÉLECTION
+        // ============================================
+
+        function switchMode(mode) {
+            currentMode = mode;
+
+            // Mettre à jour les boutons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Afficher/masquer les sections
+            if (mode === 'dropdown') {
+                document.getElementById('dropdown-mode').classList.remove('hidden');
+                document.getElementById('manual-mode').classList.add('hidden');
+                document.getElementById('help-dropdown').classList.remove('hidden');
+                document.getElementById('help-manual').classList.add('hidden');
+            } else {
+                document.getElementById('dropdown-mode').classList.add('hidden');
+                document.getElementById('manual-mode').classList.remove('hidden');
+                document.getElementById('help-dropdown').classList.add('hidden');
+                document.getElementById('help-manual').classList.remove('hidden');
+            }
+        }
+
+        // ============================================
+        // CHARGEMENT DES PRESTATIONS ACTIVES
+        // ============================================
+
+        async function loadActivePrestations() {
+            try {
+                const res = await fetch('/api/packs/deme-traiteur/prestations/actives');
+
+                if (!res.ok) {
+                    throw new Error(`Erreur ${res.status}: ${res.statusText}`);
+                }
+
+                prestationsActives = await res.json();
+                console.log(`Prestations actives chargées: ${prestationsActives.length}`);
+
+                // Remplir la liste déroulante
+                const select = document.getElementById('prestation-select');
+                select.innerHTML = '<option value="">-- Sélectionnez une prestation --</option>';
+
+                prestationsActives.forEach(prestation => {
+                    const option = document.createElement('option');
+                    option.value = prestation.id;
+                    option.textContent = `${prestation.date} - ${prestation.client_name} (${prestation.pax} PAX) - ${prestation.statut}`;
+                    select.appendChild(option);
+                });
+
+                if (prestationsActives.length === 0) {
+                    select.innerHTML = '<option value="">-- Aucune prestation active --</option>';
+                }
+
+            } catch (error) {
+                console.error('Erreur lors du chargement des prestations actives:', error);
+                const select = document.getElementById('prestation-select');
+                select.innerHTML = '<option value="">-- Erreur de chargement --</option>';
+            }
+        }
+
+        // ============================================
+        // CHARGEMENT DEPUIS LA LISTE DÉROULANTE
+        // ============================================
+
+        async function loadPrestationFromDropdown() {
+            const select = document.getElementById('prestation-select');
+            prestationId = select.value;
+
+            if (!prestationId) {
+                showStatus('⚠️ Veuillez sélectionner une prestation', 'warning');
+                return;
+            }
+
+            // Appeler la fonction de chargement commune
+            await loadPrestationData();
+        }
 
         // ============================================
         // CHARGEMENT INITIAL DU CATALOGUE
@@ -101,7 +214,7 @@
         }
 
         // ============================================
-        // CHARGEMENT D'UNE PRESTATION
+        // CHARGEMENT D'UNE PRESTATION (MODE MANUEL)
         // ============================================
 
         async function loadPrestation() {
@@ -112,6 +225,14 @@
                 return;
             }
 
+            await loadPrestationData();
+        }
+
+        // ============================================
+        // CHARGEMENT DES DONNÉES DE PRESTATION (COMMUN)
+        // ============================================
+
+        async function loadPrestationData() {
             try {
                 showStatus('Chargement des lignes de devis...', 'info');
 
@@ -324,7 +445,7 @@
 
                 // Recharger les lignes pour synchroniser l'affichage
                 setTimeout(() => {
-                    loadPrestation();
+                    loadPrestationData();
                 }, 1500);
 
             } catch (error) {
@@ -356,6 +477,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Éditeur de devis DéMé Traiteur initialisé');
             loadCatalogue();
+            loadActivePrestations();
         });
     </script>
 </body>
