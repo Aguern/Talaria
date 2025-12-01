@@ -29,6 +29,28 @@ strava_client = StravaAPIClient()
 
 
 # ============================================================================
+# Health Check & Diagnostic Endpoints
+# ============================================================================
+
+@strava_router.get("/health")
+async def health_check():
+    """
+    Endpoint de santé pour vérifier que le module Strava est opérationnel.
+
+    Retourne la configuration actuelle (sans secrets) et l'état du module.
+    """
+    return {
+        "status": "healthy",
+        "module": "stridematch.strava_test",
+        "router_prefix": strava_router.prefix,
+        "endpoints_available": [route.path for route in strava_router.routes],
+        "client_id_configured": bool(config.STRAVA_CLIENT_ID),
+        "callback_url": config.CALLBACK_URL,
+        "message": "Module Strava API opérationnel"
+    }
+
+
+# ============================================================================
 # Background Task Runner
 # ============================================================================
 
@@ -258,3 +280,82 @@ async def get_subscription_info():
         verify_token=config.WEBHOOK_VERIFY_TOKEN,
         instructions=instructions.strip()
     )
+
+
+@strava_router.post("/test-connection/{activity_id}")
+async def test_strava_connection(activity_id: int):
+    """
+    Endpoint de test pour vérifier la connexion Strava et modifier une activité.
+
+    **Paramètres**:
+    - activity_id: ID de l'activité Strava à modifier
+
+    **Exemple**:
+    ```
+    POST /api/stridematch/strava-test/test-connection/16513661416
+    ```
+
+    **Réponse**: Détails de l'opération (token refresh, activité récupérée, modifications)
+    """
+    try:
+        log.info("strava_test_connection_started", activity_id=activity_id)
+
+        # 1. Rafraîchir le token
+        new_token = await strava_client.refresh_access_token()
+
+        # 2. Récupérer l'activité
+        activity = await strava_client.get_activity(activity_id)
+
+        # 3. Préparer les mises à jour de test
+        current_description = activity.get("description", "") or ""
+        test_signature = "\n\n🧪 TEST StrideMatch • Connexion validée ✅"
+        new_description = current_description + test_signature
+
+        test_note = """Test StrideMatch - Connexion API réussie :
+✅ Token OAuth2 rafraîchi
+✅ Activité récupérée
+✅ Modification appliquée
+
+Ce test valide l'intégration Strava pour le pack StrideMatch."""
+
+        # 4. Appliquer les modifications
+        await strava_client.update_activity(
+            activity_id=activity_id,
+            description=new_description,
+            private_note=test_note
+        )
+
+        log.info("strava_test_connection_success", activity_id=activity_id)
+
+        return {
+            "status": "success",
+            "message": "Test de connexion Strava réussi !",
+            "activity_id": activity_id,
+            "activity_name": activity.get("name", "Sans nom"),
+            "activity_type": activity.get("type", "Inconnu"),
+            "token_refreshed": True,
+            "modifications_applied": {
+                "description": "Signature StrideMatch ajoutée",
+                "private_note": "Note de test ajoutée"
+            },
+            "strava_link": f"https://www.strava.com/activities/{activity_id}"
+        }
+
+    except Exception as e:
+        log.error("strava_test_connection_failed",
+                 activity_id=activity_id,
+                 error=str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": "Échec du test de connexion Strava",
+                "error": str(e),
+                "troubleshooting": [
+                    "Vérifiez que les variables d'environnement Strava sont configurées",
+                    "Vérifiez que le refresh token est valide",
+                    "Vérifiez que les permissions OAuth incluent 'activity:write'"
+                ]
+            }
+        )
