@@ -50,6 +50,73 @@ async def health_check():
     }
 
 
+@strava_router.get("/my-activities")
+async def list_my_activities(limit: int = 10):
+    """
+    Liste les dernières activités du compte Strava connecté.
+
+    **Paramètres**:
+    - limit: Nombre d'activités à récupérer (max 30, défaut: 10)
+
+    **Exemple**:
+    ```
+    GET /api/stridematch/strava-test/my-activities?limit=5
+    ```
+
+    Utilisez cet endpoint pour trouver l'ID d'une de vos activités à utiliser pour le test.
+    """
+    try:
+        import httpx
+
+        # Rafraîchir le token d'abord
+        await strava_client.refresh_access_token()
+
+        # Limiter à 30 max
+        limit = min(limit, 30)
+
+        # Récupérer les activités
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                config.STRAVA_ACTIVITIES_URL,
+                headers={"Authorization": f"Bearer {strava_client._access_token}"},
+                params={"per_page": limit}
+            )
+            response.raise_for_status()
+            activities = response.json()
+
+        # Formatter la réponse
+        activities_list = [
+            {
+                "id": act.get("id"),
+                "name": act.get("name"),
+                "type": act.get("type"),
+                "distance": round(act.get("distance", 0) / 1000, 2),  # en km
+                "start_date": act.get("start_date"),
+                "test_url": f"https://deme-api.onrender.com/api/stridematch/strava-test/test-connection/{act.get('id')}",
+                "strava_url": f"https://www.strava.com/activities/{act.get('id')}"
+            }
+            for act in activities
+        ]
+
+        return {
+            "status": "success",
+            "count": len(activities_list),
+            "message": "Utilisez l'ID d'une de ces activités pour tester",
+            "activities": activities_list
+        }
+
+    except Exception as e:
+        log.error("failed_to_list_activities", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "error",
+                "message": "Impossible de récupérer les activités",
+                "error": str(e)
+            }
+        )
+
+
 # ============================================================================
 # Background Task Runner
 # ============================================================================
