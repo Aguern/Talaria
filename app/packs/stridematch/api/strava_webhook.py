@@ -29,6 +29,28 @@ strava_client = StravaAPIClient()
 
 
 # ============================================================================
+# Health Check & Diagnostic Endpoints
+# ============================================================================
+
+@strava_router.get("/health")
+async def health_check():
+    """
+    Endpoint de santé pour vérifier que le module Strava est opérationnel.
+
+    Retourne la configuration actuelle (sans secrets) et l'état du module.
+    """
+    return {
+        "status": "healthy",
+        "module": "stridematch.strava_test",
+        "router_prefix": strava_router.prefix,
+        "endpoints_available": [route.path for route in strava_router.routes],
+        "client_id_configured": bool(config.STRAVA_CLIENT_ID),
+        "callback_url": config.CALLBACK_URL,
+        "message": "Module Strava API opérationnel"
+    }
+
+
+# ============================================================================
 # Background Task Runner
 # ============================================================================
 
