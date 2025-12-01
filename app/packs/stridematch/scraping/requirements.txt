@@ -1,0 +1,17 @@
+# Scrapy Framework
+scrapy>=2.11.0
+
+# Playwright Integration for Scrapy
+scrapy-playwright>=0.0.34
+playwright>=1.40.0
+playwright-stealth>=1.0.6
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Data Processing
+python-dotenv>=1.0.0
+
+# Fuzzy Matching (for product matching)
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.25.0

@@ -71,3 +71,16 @@ pypdf
 PyPDFForm==1.4.31
 reportlab
 pymupdf
+
+# Web Scraping (for StrideMatch pack)
+scrapy>=2.11.0
+scrapy-playwright>=0.0.34
+playwright>=1.40.0
+playwright-stealth>=1.0.6
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.25.0
+
+# Image Processing (for StrideMatch gait analysis & photo sorting)
+opencv-python-headless
+pillow
+imagehash

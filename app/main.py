@@ -25,6 +25,7 @@ if CELERY_MODE:
 from packs.bofip import router as bofip_router
 from packs.form_3916 import router as form_3916_router
 from packs.deme_traiteur import router as deme_traiteur_router
+from packs.stridematch.api import strava_webhook
 from api import chat as chat_router
 from api import recipes as recipes_router
 
@@ -140,6 +141,7 @@ async def on_startup():
 app.include_router(bofip_router.router)
 app.include_router(form_3916_router.router)
 app.include_router(deme_traiteur_router.router)
+app.include_router(strava_webhook.strava_router)
 app.include_router(chat_router.router, prefix="/api")
 app.include_router(recipes_router.router)  # Nouvelle API des recettes
 

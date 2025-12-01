@@ -1,0 +1,81 @@
+{
+  "id": "stridematch",
+  "name": "StrideMatch - Analyse de Foulée IA",
+  "description": "Analyse biomécanique de la foulée de course via vidéo smartphone. Utilise MediaPipe Pose pour extraire les angles articulaires, détecter le type d'attaque au sol (talon/médio-pied) et mesurer les performances en temps réel.",
+  "version": "0.1.0",
+  "category": "sport-tech",
+  "inputs": [
+    {
+      "name": "video_file",
+      "type": "file",
+      "required": true,
+      "description": "Fichier vidéo de la foulée (vue de profil, format MP4/AVI/MOV)"
+    },
+    {
+      "name": "runner_name",
+      "type": "text",
+      "required": false,
+      "description": "Nom du coureur analysé"
+    },
+    {
+      "name": "analysis_mode",
+      "type": "text",
+      "required": false,
+      "description": "Mode d'analyse (quick, detailed, professional)"
+    },
+    {
+      "name": "save_annotated_video",
+      "type": "boolean",
+      "required": false,
+      "description": "Sauvegarder la vidéo annotée avec squelette et métriques"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "analysis_id",
+      "type": "text",
+      "description": "ID unique de l'analyse"
+    },
+    {
+      "name": "gait_type",
+      "type": "text",
+      "description": "Type d'attaque au sol détecté (heel_strike, midfoot_strike, forefoot_strike)"
+    },
+    {
+      "name": "angles",
+      "type": "json",
+      "description": "Angles articulaires moyens (knee, ankle, hip en degrés)"
+    },
+    {
+      "name": "avg_latency_ms",
+      "type": "number",
+      "description": "Latence moyenne de traitement par frame (en millisecondes)"
+    },
+    {
+      "name": "frame_count",
+      "type": "number",
+      "description": "Nombre total de frames analysées"
+    },
+    {
+      "name": "confidence_score",
+      "type": "number",
+      "description": "Score de confiance de l'analyse (0-100%)"
+    },
+    {
+      "name": "landmarks_detected",
+      "type": "boolean",
+      "description": "Indique si les landmarks ont été détectés avec succès"
+    },
+    {
+      "name": "annotated_video_url",
+      "type": "text",
+      "description": "URL de la vidéo annotée (si save_annotated_video=true)"
+    }
+  ],
+  "tags": ["sport-tech", "computer-vision", "mediapipe", "biomechanics", "running", "gait-analysis"],
+  "requirements": [
+    "MediaPipe Pose",
+    "OpenCV",
+    "NumPy"
+  ]
+}
