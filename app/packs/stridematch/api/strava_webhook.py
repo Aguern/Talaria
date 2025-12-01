@@ -373,17 +373,17 @@ async def test_strava_connection(activity_id: int):
         # 2. Récupérer l'activité
         activity = await strava_client.get_activity(activity_id)
 
-        # 3. Préparer les mises à jour de test
+        # 3. Préparer les mises à jour de test avec données réalistes StrideMatch
         current_description = activity.get("description", "") or ""
-        test_signature = "\n\n🧪 TEST StrideMatch • Connexion validée ✅"
-        new_description = current_description + test_signature
 
-        test_note = """Test StrideMatch - Connexion API réussie :
-✅ Token OAuth2 rafraîchi
-✅ Activité récupérée
-✅ Modification appliquée
+        # Signature avec tracking chaussures
+        shoe_tracking = "\n\n• 450 km 🔋 [██████░░░░] 65% Life • Tracked by StrideMatch"
+        new_description = current_description + shoe_tracking
 
-Ce test valide l'intégration Strava pour le pack StrideMatch."""
+        # Note privée avec bilan et conseils personnalisés
+        test_note = """Bilan StrideMatch :
+Ta paire de Nike Pegasus arrive à 450km (Santé : 85%).
+Conseil : Tu as fait beaucoup de dénivelé aujourd'hui, laisse cette paire se reposer 48h pour que la mousse reprenne sa forme. Utilise tes Saucony pour la sortie de demain."""
 
         # 4. Appliquer les modifications
         await strava_client.update_activity(
